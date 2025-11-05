@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FGCU Traffic Demo - Simple Cesium View</title>
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body, #cesium-container {
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #1a1a1a;
+        }
+
+        /* Traffic Legend */
+        #legend {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(30, 30, 30, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            min-width: 220px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 1000;
+        }
+
+        #legend h3 {
+            margin: 0 0 15px 0;
+            color: #00d4ff;
+            font-size: 18px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .color-box {
+            width: 24px;
+            height: 6px;
+            margin-right: 12px;
+            border-radius: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .status-section {
+            border-top: 1px solid rgba(255,255,255,0.2);
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background: #00ff00;
+            box-shadow: 0 0 10px rgba(0,255,0,0.5);
+        }
+
+        /* Controls */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .control-btn {
+            background: rgba(30, 30, 30, 0.9);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+        }
+
+        /* Enhanced status section */
+        .status-section .enhanced-status {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+            font-size: 11px;
+        }
+
+        .status-value {
+            color: #00d4ff;
+            font-weight: 600;
+        }
+
+        /* Tooltip */
+        .cesium-viewer .cesium-widget canvas {
+            cursor: crosshair;
+        }
+
+        /* Click hint */
+        .click-hint {
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            animation: fadeInOut 4s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            20%, 80% { opacity: 1; }
+        }
+
+        /* Loading */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10000;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Hide Cesium UI elements */
+        .cesium-viewer-bottom {
+            display: none;
+        }
+
+        /* Custom imagery toggle button */
+        .imagery-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(42, 42, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 1000;
+            transition: background 0.3s ease;
+        }
+
+        .imagery-toggle:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <div id="loading-text">Initializing FGCU Traffic System...</div>
+    </div>
+
+    <!-- Demo view button -->
+    <div id="demo-button" style="position:absolute; top:12px; right:12px; z-index:1000; background:rgba(0,0,0,0.6); color:#fff; padding:8px 10px; border-radius:6px; cursor:pointer; font-size:13px;">▶ Demo View</div>
+    <!-- Imagery toggle and attribution (required by JS) -->
+    <div class="imagery-toggle" id="imagery-toggle" style="position:absolute; top:52px; right:12px; z-index:1000;">🛰️ Satellite View</div>
+    <div class="imagery-toggle" id="imagery-attribution" style="position:absolute; top:92px; right:12px; z-index:1000; background:rgba(0,0,0,0.5); font-size:11px; padding:6px 8px; border-radius:6px;">Satellite View: none</div>
+
+    <!-- Cesium Container -->
+    <div id="cesium-container"></div>
+
+    <!-- Traffic Legend -->
+    <div id="legend">
+        <h3>🚦 Traffic Monitor</h3>
+        
+        <div class="legend-item">
+            <div class="color-box" style="background: #ff4444;"></div>
+            <span>HEAVY - High congestion</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background: #ff8c00;"></div>
+            <span>MODERATE - Some delays</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background: #ffd700;"></div>
+            <span>LIGHT - Normal flow</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background: #32cd32;"></div>
+            <span>MINIMAL - Light traffic</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background: #90ee90;"></div>
+            <span>LOW - Free flowing</span>
+        </div>
+
+        <div class="status-section">
+            <div class="status-indicator">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="status-text">Loading...</span>
+            </div>
+            <div style="font-size: 11px; color: #aaa; margin-top: 8px;" id="last-update">
+                Last update: --:--
+            </div>
+            
+            <div class="enhanced-status">
+                <div class="status-item">
+                    <span>Roads:</span>
+                    <span id="road-count" class="status-value">0</span>
+                </div>
+                <div class="status-item">
+                    <span>Signals:</span>
+                    <span id="signal-count" class="status-value">0</span>
+                </div>
+                <div class="status-item">
+                    <span>PCI Data:</span>
+                    <span id="pci-count" class="status-value">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+        <button class="control-btn" onclick="resetView()">🏠 Reset View</button>
+        <button class="control-btn" onclick="toggleUpdates()" id="update-btn">⏸️ Pause Updates</button>
+        <button class="control-btn" onclick="showStats()">📊 Statistics</button>
+        <button class="control-btn" onclick="showCameraHelp()">🎮 Controls</button>
+    </div>
+
+    <!-- Camera Controls Help -->
+    <div id="camera-help" style="display:none; position:absolute; bottom:80px; right:20px; background:rgba(0,0,0,0.9); color:#fff; padding:15px; border-radius:8px; font-size:12px; z-index:1000; max-width:280px; border:1px solid #00d4ff;">
+        <div style="font-weight:bold; margin-bottom:8px; color:#00d4ff;">🎮 Camera Controls</div>
+        <div style="margin:4px 0;">🖱️ <b>Left-click + drag:</b> Rotate view</div>
+        <div style="margin:4px 0;">🖱️ <b>Right-click + drag:</b> Pan around</div>
+        <div style="margin:4px 0;">🖱️ <b>Mouse wheel:</b> Zoom in/out</div>
+        <div style="margin:4px 0;">🖱️ <b>Middle-click + drag:</b> Tilt camera</div>
+        <div style="margin:8px 0 4px 0; color:#00d4ff;"><b>⌨️ Keyboard:</b></div>
+        <div style="margin:4px 0;">W/S: Move forward/back</div>
+        <div style="margin:4px 0;">A/D: Move left/right</div>
+        <div style="margin:4px 0;">Q/E: Move up/down</div>
+        <div style="margin:4px 0;">Arrow keys: Look around</div>
+    </div>
+
+    <!-- Click hint -->
+    <div id="click-hint" class="click-hint" style="display: none;">
+        Click near roads for traffic info & PCI data
+    </div>
+
+    <!-- Cesium JavaScript -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
+    
+    <!-- Enhanced Traffic System Modules -->
+    <script src="src/trafficSystem.js"></script>
+    <script src="src/pciJoiner.js"></script>
+    <script src="src/trafficInfoPanel.js"></script>
+    
+    <script>
+        // Global variables
+        let viewer;
+        let updateInterval;
+        let isUpdating = true;
+        
+        // Enhanced system components
+        let roadIndex;
+        let signalManager; 
+        let roadSelector;
+        let trafficData = new Map();
+
+        // Configuration
+        const CONFIG = {
+            cesiumToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxZDFhZTI5OS0zNTA5LTQ5NjgtOWYzZi1jYWRmZjhjOGQ5NzgiLCJpZCI6MzUzMTM3LCJpYXQiOjE3NjE4NTQ4MDh9.j7spUK_a3OJ_cnjL-KosmmMgPZMcq5lfrqlmND27Vf0',
+            fgcuBounds: {
+                south: 26.4385,
+                west: -81.7950,
+                north: 26.4950,
+                east: -81.7350
+            },
+            updateInterval: 30000, // 30 seconds
+            osmQuery: `
+                [out:json][timeout:25];
+                (
+                    way["highway"](26.4385,-81.7950,26.4950,-81.7350);
+                    node["highway"="traffic_signals"](26.4385,-81.7950,26.4950,-81.7350);
+                );
+                out geom;
+            `,
+                // Initialize enhanced systems
+            useIonImagery: true,
+            autoDemoView: true, // Automatically load demo view on startup
+        };
+
+        // Traffic colors (compatible with older Cesium versions)
+        // Demo view loader (user-provided snippet behavior)
+        async function startDemoView() {
+            try {
+                updateLoadingText('Switching to Demo View...');
+
+                // Keep traffic entities visible (roads, signals, AI predictions)
+                // DO NOT remove entities - we want to show traffic on the 3D tileset
+                
+                // Keep the globe visible so satellite imagery and roads are shown
+                try { viewer.scene.globe.show = true; } catch (e) { console.warn(e); }
+
+                // Ensure sky atmosphere exists
+                try { viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere(); } catch (e) { /* ignore */ }
+
+                // Load the Ion tileset (user provided asset id 2275207)
+                Cesium.Cesium3DTileset.fromIonAssetId(2275207)
+                    .then(function(tileset) {
+                        viewer.scene.primitives.add(tileset);
+                        // Maximum quality settings (0.5 = ultra high detail)
+                        tileset.maximumScreenSpaceError = 0.5;
+                        tileset.maximumMemoryUsage = 2048;
+                        // Enable high-quality rendering with aggressive settings
+                        tileset.dynamicScreenSpaceError = true;
+                        tileset.dynamicScreenSpaceErrorDensity = 0.00278;
+                        tileset.dynamicScreenSpaceErrorFactor = 8.0;
+                        tileset.skipLevelOfDetail = true;
+                        tileset.baseScreenSpaceError = 512;
+                        tileset.skipScreenSpaceErrorFactor = 16;
+                        tileset.skipLevels = 1;
+                        tileset.immediatelyLoadDesiredLevelOfDetail = false;
+                        tileset.loadSiblings = true;
+                        tileset.cullWithChildrenBounds = true;
+                        
+                        console.log('✅ Tileset loaded with ULTRA quality settings');
+                    })
+                    .catch(function(error) {
+                        console.log('Error loading tileset:', error);
+                    });
+
+                // Fly camera to campus
+                setTimeout(function() {
+                    viewer.camera.flyTo({
+                        destination: Cesium.Cartesian3.fromDegrees(-81.773, 26.4628, 5000),
+                        duration: 2
+                    });
+                }, 1000);
+
+                // Update button text to show demo is active
+                const demoBtn = document.getElementById('demo-button');
+                if (demoBtn) {
+                    demoBtn.textContent = '✅ Demo View Active';
+                    demoBtn.style.background = 'rgba(0,212,255,0.3)';
+                    demoBtn.style.borderColor = '#00d4ff';
+                    demoBtn.style.border = '1px solid';
+                }
+
+                hideLoading();
+            } catch (error) {
+                console.error('Demo view failed:', error);
+                updateLoadingText('Demo view error');
+            }
+        }
+
+        // Wire demo button
+        try {
+            const demoBtn = document.getElementById('demo-button');
+            if (demoBtn) demoBtn.addEventListener('click', startDemoView);
+        } catch (e) { console.warn('Demo button wiring failed', e); }
+
+        const TRAFFIC_COLORS = {
+            HEAVY: Cesium.Color.RED,
+            MODERATE: Cesium.Color.ORANGE,
+            LIGHT: Cesium.Color.YELLOW,
+            MINIMAL: Cesium.Color.LIME,
+            LOW: Cesium.Color.LIGHTGREEN
+        };
+
+        // Initialize system
+        async function initSystem() {
+            try {
+                updateLoadingText('Setting up Cesium viewer...');
+                
+                // Configure Cesium
+                Cesium.Ion.defaultAccessToken = CONFIG.cesiumToken;
+                
+                // Create viewer with high-quality satellite imagery
+                viewer = new Cesium.Viewer('cesium-container', {
+                    baseLayerPicker: false,
+                    geocoder: false,
+                    homeButton: true,
+                    sceneModePicker: true,
+                    navigationHelpButton: false,
+                    animation: false,
+                    timeline: false,
+                    fullscreenButton: true,
+                    vrButton: false,
+                    // Use basic terrain provider initially
+                    terrainProvider: new Cesium.EllipsoidTerrainProvider()
+                });
+
+                // Add high-quality satellite imagery. Only use Cesium Ion or Google Satellite per user request.
+                // If neither provider is available, do not add a fallback provider.
+                viewer.imageryLayers.removeAll();
+                let imageryMode = 'none'; // 'ion' | 'google' | 'none'
+
+                // Try Cesium Ion imagery first if enabled
+                if (CONFIG.useIonImagery) {
+                    try {
+                        viewer.imageryLayers.addImageryProvider(new Cesium.IonImageryProvider({ assetId: 2 }));
+                        imageryMode = 'ion';
+                        console.log('Using Cesium Ion imagery (assetId: 2)');
+                    } catch (e) {
+                        console.warn('Cesium Ion imagery failed:', e);
+                    }
+                }
+
+                // If Ion not used/failed, try Google Satellite when API key is provided
+                if (imageryMode !== 'ion' && CONFIG.googleMapsKey && CONFIG.googleMapsKey.length > 8) {
+                    try {
+                        viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+                            url: `https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}&key=${CONFIG.googleMapsKey}`,
+                            credit: 'Tiles © Google Maps',
+                            maximumLevel: 20
+                        }));
+                        imageryMode = 'google';
+                        console.log('Using Google Satellite imagery (via UrlTemplate)');
+                    } catch (e) {
+                        console.warn('Google imagery provider failed:', e);
+                    }
+                }
+
+                // Load world terrain asynchronously (simplified for better tile loading)
+                Cesium.createWorldTerrainAsync({
+                    requestWaterMask: false, // Disable water mask for faster loading
+                    requestVertexNormals: false // Disable normals for faster loading
+                }).then(function(terrainProvider) {
+                    viewer.terrainProvider = terrainProvider;
+                    console.log('✅ Terrain loaded successfully');
+                }).catch(function(error) {
+                    console.log('⚠️ Terrain loading failed, using basic ellipsoid terrain:', error);
+                    viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+                });
+
+                // Configure scene for clear daylight satellite view
+                viewer.scene.mode = Cesium.SceneMode.SCENE3D;
+                // Disable depth test to prevent tile loading issues
+                viewer.scene.globe.depthTestAgainstTerrain = false;
+
+                // Disable globe dynamic lighting and HDR for a neutral daylight rendering
+                viewer.scene.globe.enableLighting = false;
+                if (typeof viewer.scene.highDynamicRange !== 'undefined') {
+                    viewer.scene.highDynamicRange = false;
+                }
+
+                // Use SunLight instead of DirectionalLight to prevent black blobs
+                try {
+                    viewer.scene.light = new Cesium.SunLight();
+                } catch (e) {
+                    console.warn('SunLight not available, using default lighting');
+                }
+
+                // Set globe base color to white/light gray to prevent dark areas
+                try {
+                    viewer.scene.globe.baseColor = Cesium.Color.WHITE;
+                } catch (e) {
+                    // ignore if not available in this Cesium build
+                }
+                
+                // Ensure globe is always lit properly
+                viewer.scene.globe.showGroundAtmosphere = true;
+                viewer.scene.globe.enableLighting = false; // Disable dynamic lighting to prevent shadows
+
+                // Debug: report which provider was selected (ion/google/none)
+                if (imageryMode === 'ion') {
+                    console.log('🛰️ Using Cesium Ion imagery for satellite view');
+                    const attr0 = document.getElementById('imagery-attribution'); if (attr0) attr0.textContent = 'Satellite View: Cesium Ion';
+                } else if (imageryMode === 'google') {
+                    console.log('🛰️ Using Google Satellite imagery for satellite view');
+                    const attrg = document.getElementById('imagery-attribution'); if (attrg) attrg.textContent = 'Satellite View: Google Satellite';
+                } else {
+                    console.log('🛰️ No Ion/Google imagery available - base imagery disabled');
+                    const attrn = document.getElementById('imagery-attribution'); if (attrn) attrn.textContent = 'No base imagery (Ion/Google disabled)';
+                }
+
+                // Add imagery toggle functionality (cycle only between Ion and Google)
+                const toggleButton = document.getElementById('imagery-toggle');
+                let currentImagery = imageryMode; // 'ion' | 'google' | 'none'
+
+                toggleButton.addEventListener('click', function() {
+                    viewer.imageryLayers.removeAll();
+                    // If currently Ion -> try Google
+                    if (currentImagery === 'ion') {
+                        if (CONFIG.googleMapsKey && CONFIG.googleMapsKey.length > 8) {
+                            try {
+                                viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+                                    url: `https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}&key=${CONFIG.googleMapsKey}`,
+                                    credit: 'Tiles © Google Maps',
+                                    maximumLevel: 20
+                                }));
+                                currentImagery = 'google';
+                                toggleButton.textContent = '🛰️ Google Satellite';
+                                const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'Satellite View: Google Satellite';
+                                return;
+                            } catch (e) {
+                                console.warn('Google imagery provider failed on toggle:', e);
+                                currentImagery = 'none';
+                                const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'No base imagery (Ion/Google disabled)';
+                                toggleButton.textContent = 'No Imagery';
+                                return;
+                            }
+                        } else {
+                            // No Google key -> disable base imagery
+                            currentImagery = 'none';
+                            const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'No base imagery (Ion/Google disabled)';
+                            toggleButton.textContent = 'No Imagery';
+                            return;
+                        }
+                    }
+
+                    // If currently Google -> try Ion
+                    if (currentImagery === 'google') {
+                        if (CONFIG.useIonImagery) {
+                            try {
+                                viewer.imageryLayers.addImageryProvider(new Cesium.IonImageryProvider({ assetId: 2 }));
+                                currentImagery = 'ion';
+                                toggleButton.textContent = '🛰️ Ion Imagery';
+                                const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'Satellite View: Cesium Ion';
+                                return;
+                            } catch (e) {
+                                console.warn('Ion imagery failed on toggle:', e);
+                                currentImagery = 'none';
+                                const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'No base imagery (Ion/Google disabled)';
+                                toggleButton.textContent = 'No Imagery';
+                                return;
+                            }
+                        } else {
+                            currentImagery = 'none';
+                            const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'No base imagery (Ion/Google disabled)';
+                            toggleButton.textContent = 'No Imagery';
+                            return;
+                        }
+                    }
+
+                    // If currently none, try Ion then Google
+                    if (currentImagery === 'none') {
+                        if (CONFIG.useIonImagery) {
+                            try {
+                                viewer.imageryLayers.addImageryProvider(new Cesium.IonImageryProvider({ assetId: 2 }));
+                                currentImagery = 'ion';
+                                toggleButton.textContent = '�️ Ion Imagery';
+                                const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'Satellite View: Cesium Ion';
+                                return;
+                            } catch (e) {
+                                console.warn('Ion imagery failed on toggle from none:', e);
+                            }
+                        }
+                        if (CONFIG.googleMapsKey && CONFIG.googleMapsKey.length > 8) {
+                            try {
+                                viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+                                    url: `https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}&key=${CONFIG.googleMapsKey}`,
+                                    credit: 'Tiles © Google Maps',
+                                    maximumLevel: 20
+                                }));
+                                currentImagery = 'google';
+                                toggleButton.textContent = '🛰️ Google Satellite';
+                                const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'Satellite View: Google Satellite';
+                                return;
+                            } catch (e) {
+                                console.warn('Google imagery failed on toggle from none:', e);
+                            }
+                        }
+                        // Still none
+                        currentImagery = 'none';
+                        const attr = document.getElementById('imagery-attribution'); if (attr) attr.textContent = 'No base imagery (Ion/Google disabled)';
+                        toggleButton.textContent = 'No Imagery';
+                        return;
+                    }
+                });
+
+                // Visual settings tuned for clear satellite alignment
+                // Turn off fog to prevent dark areas
+                viewer.scene.fog.enabled = false;
+                try { viewer.scene.fog.density = 0.0; } catch (e) {}
+
+                // Keep sky atmosphere visible but subtle to prevent black blobs
+                try { 
+                    viewer.scene.skyAtmosphere.show = true;
+                    viewer.scene.skyAtmosphere.hueShift = 0.0;
+                    viewer.scene.skyAtmosphere.saturationShift = 0.0;
+                    viewer.scene.skyAtmosphere.brightnessShift = 0.0;
+                } catch (e) {}
+                
+                // Keep ground atmosphere for better visuals
+                try { viewer.scene.globe.showGroundAtmosphere = true; } catch (e) {}
+                
+                // Disable dynamic lighting to prevent shadows/dark patches
+                try { viewer.scene.globe.dynamicAtmosphereLighting = false; } catch (e) {}
+                try { viewer.scene.globe.dynamicAtmosphereLightingFromSun = false; } catch (e) {}
+                
+                // Set background color to prevent black areas
+                viewer.scene.backgroundColor = Cesium.Color.BLACK;
+                
+                // Ensure moon/sun don't cast shadows
+                viewer.scene.moon = undefined;
+                viewer.scene.sun = undefined;
+
+                // ⚡ PERFORMANCE OPTIMIZATIONS ⚡
+                // Optimize globe rendering for proper tile loading
+                try { viewer.scene.globe.maximumScreenSpaceError = 1.5; } catch (e) {} // Balance quality and performance
+                viewer.resolutionScale = 1.0; // Full resolution for proper tile loading
+                
+                // Disable request render mode to ensure continuous tile loading
+                viewer.scene.requestRenderMode = false; // Continuous rendering for proper tile loading
+                viewer.scene.maximumRenderTimeChange = 0.0; // Allow all renders
+                
+                // Optimize frame rate
+                viewer.targetFrameRate = 60;
+                viewer.useBrowserRecommendedResolution = false; // Use full resolution
+                
+                // Reduce shadow quality for performance
+                if (viewer.shadows) {
+                    viewer.shadows = false; // Disable shadows for speed
+                }
+                
+                // Optimize imagery loading - INCREASE cache for better tile retention
+                viewer.scene.globe.tileCacheSize = 1000; // Larger cache to keep tiles loaded
+                viewer.scene.globe.preloadAncestors = true; // Preload lower-res tiles
+                viewer.scene.globe.preloadSiblings = true; // Preload adjacent tiles
+                
+                // Increase max concurrent image requests
+                Cesium.RequestScheduler.maximumRequestsPerServer = 18; // More concurrent tile requests
+                
+                console.log('⚡ Tile loading optimizations applied');
+
+                // Keep rendering settings conservative for performance
+                
+                updateLoadingText('Flying to FGCU campus...');
+                
+                // 🎮 ENHANCED CAMERA CONTROLS 🎮
+                viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
+                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 50; // Zoom closer
+                viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000;
+                
+                // Smoother camera movement
+                viewer.scene.screenSpaceCameraController.inertiaSpin = 0.9;
+                viewer.scene.screenSpaceCameraController.inertiaTranslate = 0.9;
+                viewer.scene.screenSpaceCameraController.inertiaZoom = 0.8;
+                
+                // Faster rotation and zoom
+                viewer.scene.screenSpaceCameraController.zoomEventTypes = [
+                    Cesium.CameraEventType.WHEEL,
+                    Cesium.CameraEventType.PINCH
+                ];
+                viewer.scene.screenSpaceCameraController.tiltEventTypes = [
+                    Cesium.CameraEventType.MIDDLE_DRAG,
+                    Cesium.CameraEventType.PINCH,
+                    {
+                        eventType: Cesium.CameraEventType.LEFT_DRAG,
+                        modifier: Cesium.KeyboardEventModifier.CTRL
+                    },
+                    {
+                        eventType: Cesium.CameraEventType.RIGHT_DRAG,
+                        modifier: Cesium.KeyboardEventModifier.CTRL
+                    }
+                ];
+                
+                console.log('🎮 Camera controls enabled - Use mouse to pan/rotate/zoom');
+                console.log('   • Left-click + drag: Rotate');
+                console.log('   • Right-click + drag: Pan');
+                console.log('   • Mouse wheel: Zoom');
+                console.log('   • Middle-click + drag: Tilt');
+                
+                // Smooth flight to FGCU (like your friend's approach)
+                setTimeout(function() {
+                    viewer.camera.flyTo({
+                        destination: Cesium.Cartesian3.fromDegrees(-81.773, 26.4628, 3000),
+                        orientation: {
+                            heading: Cesium.Math.toRadians(45.0),  // Angled view for better perspective
+                            pitch: Cesium.Math.toRadians(-40.0),   // Looking down at angle
+                            roll: 0.0
+                        },
+                        duration: 2.0
+                    });
+                }, 1000);
+
+                // Initialize enhanced systems
+                updateLoadingText('Initializing traffic systems...');
+                await initEnhancedSystems();
+                
+                updateStatus('active', 'Enhanced System Active');
+                hideLoading();
+                
+                // Show click hint briefly
+                showClickHint();
+                
+                // Start updates
+                startUpdates();
+                
+                // Auto-load demo view if configured
+                if (CONFIG.autoDemoView) {
+                    console.log('🎬 Auto-loading demo view...');
+                    setTimeout(() => {
+                        startDemoView();
+                    }, 2500); // Wait 2.5 seconds after initialization
+                }
+                
+            } catch (error) {
+                console.error('System initialization failed:', error);
+                updateStatus('error', 'System Error');
+                updateLoadingText('Error: ' + error.message);
+            }
+        }
+
+        // Initialize enhanced traffic systems
+        async function initEnhancedSystems() {
+            try {
+                // Wait for modules to be loaded
+                if (typeof RoadIndex === 'undefined') {
+                    throw new Error('RoadIndex class not loaded');
+                }
+                
+                // Initialize road index
+                roadIndex = new RoadIndex();
+                
+                // Load OSM data
+                updateLoadingText('Loading OpenStreetMap data...');
+                const osmData = await fetchOSMData();
+                
+                // Load roads into index
+                updateLoadingText('Processing road network...');
+                await roadIndex.loadFromOSM(osmData);
+                
+                // Join PCI data
+                updateLoadingText('Joining pavement condition data...');
+                const roads = roadIndex.getAllRoads();
+                pciJoiner.joinToRoads(roads);
+                pciJoiner.ensureAllRoadsHavePCI(roads);
+                
+                // Initialize signal manager
+                updateLoadingText('Placing traffic signals...');
+                signalManager = new SignalManager(viewer, roadIndex);
+                await signalManager.loadFromOSM(osmData);
+                
+                // Create road visualization
+                updateLoadingText('Creating road visualization...');
+                createEnhancedRoadVisualization();
+                
+                // Initialize road selector
+                roadSelector = new RoadSelector(viewer, roadIndex, onRoadSelected);
+                
+                // Generate initial traffic data
+                updateLoadingText('Generating traffic data...');
+                generateInitialTrafficData();
+                
+                // Update statistics
+                updateStatistics();
+                
+                console.log('✅ Enhanced traffic system initialized');
+                
+            } catch (error) {
+                console.error('Enhanced system initialization failed:', error);
+                console.log('🔄 Falling back to simple traffic system...');
+                
+                // Fallback to simple system
+                updateLoadingText('Loading simple traffic system...');
+                await loadTrafficData();
+                
+                console.log('✅ Simple traffic system loaded');
+            }
+        }
+
+        // Fetch OSM data using the enhanced query
+        async function fetchOSMData() {
+            const url = 'https://overpass-api.de/api/interpreter?data=' + 
+                       encodeURIComponent(CONFIG.osmQuery);
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (!data.elements || data.elements.length === 0) {
+                throw new Error('No OSM data found');
+            }
+            
+            console.log(`📥 Loaded ${data.elements.length} OSM elements`);
+            return data;
+        }
+
+        // Create enhanced road visualization
+        function createEnhancedRoadVisualization() {
+            const roads = roadIndex.getAllRoads();
+            
+            // Filter out non-drivable roads (pedestrian paths, footways, etc.)
+            const drivableRoadTypes = [
+                'motorway', 'trunk', 'primary', 'secondary', 'tertiary',
+                'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link',
+                'residential', 'unclassified', 'service', 'living_street'
+            ];
+            
+            let skipCount = 0;
+            let addedCount = 0;
+            
+            for (const road of roads) {
+                // Skip non-drivable roads (footways, pedestrian paths, cycleways, etc.)
+                if (!drivableRoadTypes.includes(road.kind)) {
+                    skipCount++;
+                    console.log(`🚶 Skipping non-drivable: ${road.name || 'Unnamed'} (type: ${road.kind})`);
+                    continue;
+                }
+                
+                // Skip unnamed footways specifically
+                if (!road.name || road.name.toLowerCase().includes('footway') || road.name.toLowerCase().includes('path')) {
+                    if (road.kind === 'footway' || road.kind === 'path' || road.kind === 'pedestrian' || road.kind === 'cycleway') {
+                        skipCount++;
+                        continue;
+                    }
+                }
+                
+                // Convert to Cesium positions
+                const positions = Cesium.Cartesian3.fromDegreesArray(road.positions);
+                road.cesiumPositions = positions;
+                
+                // Get initial traffic level (will be updated with real data)
+                const trafficLevel = generateTrafficLevel();
+                const width = getWidthForHighway(road.kind);
+                
+                // Create road entity
+                const entity = viewer.entities.add({
+                    id: `enhanced_road_${road.id}`,
+                    name: road.name || `${road.kind} (Unnamed)`,
+                    polyline: {
+                        positions: positions,
+                        clampToGround: true,
+                        width: width,
+                        material: new Cesium.PolylineGlowMaterialProperty({
+                            glowPower: 0.4,
+                            color: getTrafficColor(trafficLevel)
+                        })
+                    },
+                    properties: {
+                        type: 'road',
+                        roadId: road.id,
+                        roadName: road.name || `${road.kind} (Unnamed)`,
+                        roadKind: road.kind
+                    },
+                    description: createEnhancedRoadDescription(road, trafficLevel)
+                });
+                
+                addedCount++;
+                
+                // Store initial traffic data
+                trafficData.set(road.id, {
+                    level: trafficLevel,
+                    currentVolume: generateTrafficVolume(trafficLevel),
+                    forecast1h: 0,
+                    forecast4h: 0, 
+                    forecast24h: 0,
+                    lastUpdated: new Date().toISOString()
+                });
+            }
+            
+            console.log(`🛣️ Created ${addedCount} drivable road segments (skipped ${skipCount} pedestrian/footway paths)`);
+        }
+
+        // Generate initial traffic data for all roads
+        function generateInitialTrafficData() {
+            const roads = roadIndex.getAllRoads();
+            
+            // Filter out non-drivable roads
+            const drivableRoadTypes = [
+                'motorway', 'trunk', 'primary', 'secondary', 'tertiary',
+                'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link',
+                'residential', 'unclassified', 'service', 'living_street'
+            ];
+            
+            let dataGenerated = 0;
+            
+            for (const road of roads) {
+                // Skip non-drivable roads (footways, pedestrian paths, cycleways, etc.)
+                if (!drivableRoadTypes.includes(road.kind)) {
+                    continue;
+                }
+                
+                const level = generateTrafficLevel();
+                const currentVolume = generateTrafficVolume(level);
+                
+                // Generate forecasts with some variation
+                const forecast1h = Math.round(currentVolume * (0.9 + Math.random() * 0.2));
+                const forecast4h = Math.round(currentVolume * (0.8 + Math.random() * 0.4));  
+                const forecast24h = Math.round(currentVolume * (0.7 + Math.random() * 0.6));
+                
+                const metrics = {
+                    level,
+                    currentVolume,
+                    forecast1h,
+                    forecast4h,
+                    forecast24h,
+                    lastUpdated: new Date().toISOString(),
+                    signalCount: signalManager ? signalManager.getSignalsForRoad(road.id).length : 0
+                };
+                
+                roadIndex.setTrafficData(road.id, metrics);
+                dataGenerated++;
+            }
+            
+            console.log(`📊 Generated traffic data for ${dataGenerated} drivable roads`);
+        }
+
+        // Load traffic data (fallback function)
+        async function loadTrafficData() {
+            try {
+                const roads = await fetchRoadsFromOSM();
+                createTrafficVisualization(roads);
+            } catch (error) {
+                console.warn('OSM loading failed, using fallback:', error);
+                createFallbackRoads();
+            }
+        }
+
+        // Fetch roads from OpenStreetMap
+        async function fetchRoadsFromOSM() {
+            const query = `
+                [out:json][timeout:25];
+                (
+                    way["highway"](${CONFIG.fgcuBounds.south},${CONFIG.fgcuBounds.west},${CONFIG.fgcuBounds.north},${CONFIG.fgcuBounds.east});
+                );
+                out geom;
+            `;
+            
+            const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.elements || data.elements.length === 0) {
+                throw new Error('No roads found');
+            }
+            
+            return data.elements.filter(road => 
+                road.type === 'way' && 
+                road.geometry && 
+                road.geometry.length > 1
+            );
+        }
+
+        // Create traffic visualization
+        function createTrafficVisualization(roads) {
+            const trafficLevels = ['HEAVY', 'MODERATE', 'LIGHT', 'MINIMAL', 'LOW'];
+            
+            roads.forEach(road => {
+                // Convert geometry
+                const coordinates = road.geometry.flatMap(point => [point.lon, point.lat]);
+                
+                // Simplify if needed
+                const finalCoords = coordinates.length > 40 ? 
+                    simplifyCoordinates(coordinates) : coordinates;
+                
+                const positions = Cesium.Cartesian3.fromDegreesArray(finalCoords);
+                
+                // Generate traffic data
+                const level = trafficLevels[Math.floor(Math.random() * trafficLevels.length)];
+                const width = getWidthForHighway(road.tags?.highway);
+                const name = road.tags?.name || road.tags?.ref || `Road ${road.id}`;
+                
+                // Create polyline
+                viewer.entities.add({
+                    id: `road_${road.id}`,
+                    name: name,
+                    polyline: {
+                        positions: positions,
+                        clampToGround: true,
+                        width: width,
+                        material: new Cesium.PolylineGlowMaterialProperty({
+                            glowPower: 0.4,
+                            color: TRAFFIC_COLORS[level]
+                        })
+                    },
+                    description: createRoadDescription(name, level)
+                });
+            });
+            
+            console.log(`Created ${roads.length} traffic roads`);
+        }
+
+        // Create fallback roads
+        function createFallbackRoads() {
+            const fallbackRoads = [
+                {
+                    name: 'Ben Hill Griffin Parkway',
+                    coords: [[-81.795, 26.463], [-81.788, 26.462], [-81.781, 26.461], [-81.774, 26.460], [-81.767, 26.459]],
+                    level: 'MODERATE',
+                    width: 8
+                },
+                {
+                    name: 'FGCU Boulevard',
+                    coords: [[-81.773, 26.470], [-81.773, 26.465], [-81.773, 26.460], [-81.773, 26.455]],
+                    level: 'LIGHT',
+                    width: 6
+                }
+            ];
+
+            fallbackRoads.forEach(road => {
+                const positions = Cesium.Cartesian3.fromDegreesArray(road.coords.flat());
+                
+                viewer.entities.add({
+                    name: road.name,
+                    polyline: {
+                        positions: positions,
+                        clampToGround: true,
+                        width: road.width,
+                        material: new Cesium.PolylineGlowMaterialProperty({
+                            glowPower: 0.4,
+                            color: TRAFFIC_COLORS[road.level]
+                        })
+                    },
+                    description: createRoadDescription(road.name, road.level)
+                });
+            });
+        }
+
+        // Utility functions
+        function simplifyCoordinates(coords) {
+            const simplified = [coords[0], coords[1]];
+            for (let i = 4; i < coords.length - 4; i += 4) {
+                simplified.push(coords[i], coords[i + 1]);
+            }
+            simplified.push(coords[coords.length - 2], coords[coords.length - 1]);
+            return simplified;
+        }
+
+        function getWidthForHighway(type) {
+            switch (type) {
+                case 'trunk':
+                case 'primary': return 8;
+                case 'secondary':
+                case 'tertiary': return 6;
+                case 'residential':
+                case 'service': return 3;
+                default: return 4;
+            }
+        }
+
+        function createRoadDescription(name, level) {
+            const volume = 100 + Math.floor(Math.random() * 600);
+            const speed = 15 + Math.floor(Math.random() * 35);
+            
+            return `
+                <div style="font-family: Arial; padding: 12px;">
+                    <h3>🛣️ ${name}</h3>
+                    <hr style="margin: 8px 0;">
+                    <p><strong>Traffic Level:</strong> ${level}</p>
+                    <p><strong>Volume:</strong> ${volume} vehicles/hour</p>
+                    <p><strong>Speed:</strong> ${speed} mph</p>
+                    <p><strong>Updated:</strong> ${new Date().toLocaleTimeString()}</p>
+                </div>
+            `;
+        }
+
+        // Enhanced traffic update function
+        function updateTraffic() {
+            if (roadIndex) {
+                // Update with enhanced system
+                updateEnhancedTraffic();
+            } else {
+                // Fallback to simple system
+                updateSimpleTraffic();
+            }
+            
+            updateStatus('active', 'Traffic Updated');
+            updateLastUpdateTime();
+        }
+
+        // Update enhanced traffic system
+        function updateEnhancedTraffic() {
+            const roads = roadIndex.getAllRoads();
+            
+            roads.forEach(road => {
+                // Generate new traffic data with some persistence
+                const currentData = roadIndex.getTrafficData(road.id);
+                let newLevel;
+                
+                // 70% chance to keep same level, 30% to change
+                if (currentData && Math.random() < 0.7) {
+                    newLevel = currentData.level;
+                } else {
+                    newLevel = generateTrafficLevel();
+                }
+                
+                const newVolume = generateTrafficVolume(newLevel);
+                const forecast1h = Math.round(newVolume * (0.9 + Math.random() * 0.2));
+                const forecast4h = Math.round(newVolume * (0.8 + Math.random() * 0.4));
+                const forecast24h = Math.round(newVolume * (0.7 + Math.random() * 0.6));
+                
+                // Update traffic data
+                const updatedMetrics = {
+                    level: newLevel,
+                    currentVolume: newVolume,
+                    forecast1h,
+                    forecast4h,
+                    forecast24h,
+                    lastUpdated: new Date().toISOString(),
+                    signalCount: signalManager ? signalManager.getSignalsForRoad(road.id).length : 0
+                };
+                
+                roadIndex.setTrafficData(road.id, updatedMetrics);
+                
+                // Update visual representation
+                const entities = viewer.entities.values;
+                for (const entity of entities) {
+                    if (entity.properties?.roadId?.getValue() === road.id) {
+                        if (entity.polyline) {
+                            entity.polyline.material = new Cesium.PolylineGlowMaterialProperty({
+                                glowPower: 0.4,
+                                color: getTrafficColor(newLevel)
+                            });
+                            entity.description = createEnhancedRoadDescription(road, newLevel);
+                        }
+                        break;
+                    }
+                }
+                
+                // Update signal pulses
+                if (signalManager) {
+                    signalManager.updateSignalPulse(road.id, newLevel);
+                }
+            });
+            
+            // Update info panel if visible
+            if (trafficInfoPanel.isShowing()) {
+                const selectedRoad = trafficInfoPanel.getCurrentRoad();
+                if (selectedRoad) {
+                    const updatedData = roadIndex.getTrafficData(selectedRoad.id);
+                    trafficInfoPanel.updateTrafficData(updatedData);
+                }
+            }
+            
+            console.log(`🔄 Updated traffic for ${roads.length} roads`);
+        }
+
+        // Simple traffic update (fallback)
+        function updateSimpleTraffic() {
+            const trafficLevels = ['HEAVY', 'MODERATE', 'LIGHT', 'MINIMAL'];
+            const entities = viewer.entities.values;
+            
+            entities.forEach(entity => {
+                if (entity.polyline && entity.id?.startsWith('road_')) {
+                    const newLevel = trafficLevels[Math.floor(Math.random() * trafficLevels.length)];
+                    entity.polyline.material = new Cesium.PolylineGlowMaterialProperty({
+                        glowPower: 0.4,
+                        color: getTrafficColor(newLevel)
+                    });
+                    entity.description = createRoadDescription(entity.name, newLevel);
+                }
+            });
+        }
+
+        function startUpdates() {
+            updateInterval = setInterval(() => {
+                if (isUpdating) {
+                    updateTraffic();
+                }
+            }, CONFIG.updateInterval);
+        }
+
+        // UI functions
+        function updateLoadingText(text) {
+            document.getElementById('loading-text').textContent = text;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function updateStatus(status, text) {
+            const dot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            
+            const colors = {
+                loading: '#ffd700',
+                active: '#00ff00',
+                error: '#ff4444'
+            };
+            
+            dot.style.background = colors[status];
+            dot.style.boxShadow = `0 0 10px ${colors[status]}`;
+            statusText.textContent = text;
+        }
+
+        function updateLastUpdateTime() {
+            document.getElementById('last-update').textContent = 
+                `Last update: ${new Date().toLocaleTimeString()}`;
+        }
+
+        // Road selection callback
+        function onRoadSelected(road) {
+            if (road) {
+                // Get traffic data for this road
+                const traffic = roadIndex.getTrafficData(road.id);
+                const signalCount = signalManager ? signalManager.getSignalsForRoad(road.id).length : 0;
+                
+                // Show traffic info panel
+                trafficInfoPanel.show(road, traffic, signalCount);
+                
+                // Update signal pulses
+                if (signalManager && traffic) {
+                    signalManager.updateSignalPulse(road.id, traffic.level);
+                }
+            } else {
+                // Hide panel when no road selected
+                trafficInfoPanel.hide();
+            }
+        }
+
+        // Enhanced road description
+        function createEnhancedRoadDescription(road, trafficLevel) {
+            const pci = road.metadata?.pci || 'Unknown';
+            const pciCondition = road.metadata?.pciCondition || 'Unknown';
+            
+            return `
+                <div style="font-family: Arial; padding: 12px;">
+                    <h3>🛣️ ${road.name}</h3>
+                    <hr style="margin: 8px 0;">
+                    <p><strong>Type:</strong> ${road.kind}</p>
+                    <p><strong>Length:</strong> ${Math.round(road.length)}m</p>
+                    <p><strong>Traffic:</strong> ${trafficLevel}</p>
+                    <p><strong>PCI:</strong> ${pci} (${pciCondition})</p>
+                    <p><strong>Updated:</strong> ${new Date().toLocaleTimeString()}</p>
+                    <hr style="margin: 8px 0;">
+                    <p><em>Click to select for detailed info</em></p>
+                </div>
+            `;
+        }
+
+        // Generate random traffic level
+        function generateTrafficLevel() {
+            const levels = [TRAFFIC_LEVELS.HEAVY, TRAFFIC_LEVELS.MODERATE, 
+                           TRAFFIC_LEVELS.LIGHT, TRAFFIC_LEVELS.MINIMAL];
+            return levels[Math.floor(Math.random() * levels.length)];
+        }
+
+        // Generate traffic volume based on level  
+        function generateTrafficVolume(level) {
+            const ranges = {
+                [TRAFFIC_LEVELS.HEAVY]: [400, 700],
+                [TRAFFIC_LEVELS.MODERATE]: [250, 400],
+                [TRAFFIC_LEVELS.LIGHT]: [150, 250], 
+                [TRAFFIC_LEVELS.MINIMAL]: [75, 150]
+            };
+            
+            const [min, max] = ranges[level] || [100, 300];
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // Update statistics display
+        function updateStatistics() {
+            if (roadIndex) {
+                const stats = roadIndex.getStats();
+                document.getElementById('road-count').textContent = stats.roadCount;
+                
+                const signalCount = signalManager ? 
+                    signalManager.signals.length : 0;
+                document.getElementById('signal-count').textContent = signalCount;
+                
+                const pciStats = pciJoiner.getStats();
+                document.getElementById('pci-count').textContent = pciStats.totalRecords;
+            }
+        }
+
+        // Show click hint
+        function showClickHint() {
+            const hint = document.getElementById('click-hint');
+            hint.style.display = 'block';
+            setTimeout(() => {
+                hint.style.display = 'none';
+            }, 4000);
+        }
+
+        // Show statistics dialog
+        function showStats() {
+            if (roadIndex) {
+                const roadStats = roadIndex.getStats();
+                const pciStats = pciJoiner.getStats();
+                const signalCount = signalManager ? signalManager.signals.length : 0;
+                
+                alert(`FGCU Traffic System Statistics:
+                
+Roads: ${roadStats.roadCount} segments
+Traffic Signals: ${signalCount} locations  
+PCI Records: ${pciStats.totalRecords} (avg: ${pciStats.averagePCI})
+Traffic Data: ${roadStats.trafficDataCount} active
+
+Road Types Distribution:
+${roadIndex.getAllRoads().reduce((acc, road) => {
+    acc[road.kind] = (acc[road.kind] || 0) + 1;
+    return acc;
+}, {})}
+
+PCI Conditions:
+${Object.entries(pciStats.conditions).map(([k,v]) => `${k}: ${v}`).join('\n')}
+                `);
+            }
+        }
+
+        // Control functions
+        function resetView() {
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(-81.773, 26.4628, 6000),
+                orientation: {
+                    heading: 0.0,
+                    pitch: Cesium.Math.toRadians(-30.0),
+                    roll: 0.0
+                },
+                duration: 2.0
+            });
+        }
+
+        function toggleUpdates() {
+            isUpdating = !isUpdating;
+            const btn = document.getElementById('update-btn');
+            btn.textContent = isUpdating ? '⏸️ Pause Updates' : '▶️ Resume Updates';
+            updateStatus(isUpdating ? 'active' : 'loading', 
+                       isUpdating ? 'Updates Active' : 'Updates Paused');
+        }
+
+        // Show camera controls help
+        function showCameraHelp() {
+            const helpDiv = document.getElementById('camera-help');
+            if (helpDiv) {
+                helpDiv.style.display = helpDiv.style.display === 'none' ? 'block' : 'none';
+                setTimeout(() => {
+                    if (helpDiv.style.display === 'block') {
+                        helpDiv.style.display = 'none';
+                    }
+                }, 8000); // Auto-hide after 8 seconds
+            }
+        }
+
+        // 🎮 KEYBOARD CAMERA CONTROLS
+        function setupKeyboardControls() {
+            const moveSpeed = 100; // meters per keypress
+            const lookSpeed = 0.05; // radians per keypress
+            
+            document.addEventListener('keydown', function(e) {
+                if (!viewer || !viewer.camera) return;
+                
+                const camera = viewer.camera;
+                
+                // Movement controls (WASD + QE)
+                switch(e.key.toLowerCase()) {
+                    case 'w': // Move forward
+                        camera.moveForward(moveSpeed);
+                        e.preventDefault();
+                        break;
+                    case 's': // Move backward
+                        camera.moveBackward(moveSpeed);
+                        e.preventDefault();
+                        break;
+                    case 'a': // Move left
+                        camera.moveLeft(moveSpeed);
+                        e.preventDefault();
+                        break;
+                    case 'd': // Move right
+                        camera.moveRight(moveSpeed);
+                        e.preventDefault();
+                        break;
+                    case 'q': // Move up
+                        camera.moveUp(moveSpeed);
+                        e.preventDefault();
+                        break;
+                    case 'e': // Move down
+                        camera.moveDown(moveSpeed);
+                        e.preventDefault();
+                        break;
+                }
+                
+                // Look controls (Arrow keys)
+                switch(e.key) {
+                    case 'ArrowUp': // Look up
+                        camera.lookUp(lookSpeed);
+                        e.preventDefault();
+                        break;
+                    case 'ArrowDown': // Look down
+                        camera.lookDown(lookSpeed);
+                        e.preventDefault();
+                        break;
+                    case 'ArrowLeft': // Look left
+                        camera.lookLeft(lookSpeed);
+                        e.preventDefault();
+                        break;
+                    case 'ArrowRight': // Look right
+                        camera.lookRight(lookSpeed);
+                        e.preventDefault();
+                        break;
+                }
+            });
+            
+            console.log('⌨️ Keyboard controls enabled');
+        }
+
+        // Initialize when ready
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 DOM loaded, checking dependencies...');
+            
+            // Check Cesium
+            if (!window.Cesium) {
+                updateLoadingText('Error: Cesium not loaded');
+                return;
+            }
+            
+            // Check if our modules are loaded
+            setTimeout(() => {
+                console.log('🔍 Checking modules...');
+                console.log('RoadIndex available:', typeof RoadIndex !== 'undefined');
+                console.log('SignalManager available:', typeof SignalManager !== 'undefined');
+                console.log('PCIJoiner available:', typeof pciJoiner !== 'undefined');
+                console.log('TrafficInfoPanel available:', typeof trafficInfoPanel !== 'undefined');
+                
+                // Setup keyboard controls
+                setupKeyboardControls();
+                
+                initSystem();
+            }, 100); // Small delay to ensure all scripts are loaded
+        });
+    </script>
+</body>
+</html>
