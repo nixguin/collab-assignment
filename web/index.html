@@ -530,7 +530,8 @@
                 const toggleButton = document.getElementById('imagery-toggle');
                 let currentImagery = imageryMode; // 'ion' | 'google' | 'none'
 
-                toggleButton.addEventListener('click', function() {
+                if (toggleButton) {
+                    toggleButton.addEventListener('click', function() {
                     viewer.imageryLayers.removeAll();
                     // If currently Ion -> try Google
                     if (currentImagery === 'ion') {
@@ -620,6 +621,7 @@
                         return;
                     }
                 });
+                } // end if (toggleButton)
 
                 // Visual settings tuned for clear satellite alignment
                 // Turn off fog to prevent dark areas
