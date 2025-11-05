@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FGCU Traffic System - Debug</title>
+    
+    <!-- Cesium CSS -->
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body, #cesium-container {
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #1a1a1a;
+        }
+
+        #debug-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .debug-item {
+            margin: 3px 0;
+        }
+
+        .status-ok { color: #00ff00; }
+        .status-error { color: #ff4444; }
+        .status-warning { color: #ffd700; }
+
+        /* Hide Cesium UI elements */
+        .cesium-viewer-bottom {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Debug Panel -->
+    <div id="debug-panel">
+        <h3>🔍 FGCU Traffic System Debug</h3>
+        <div class="debug-item">Status: <span id="status">Starting...</span></div>
+        <div class="debug-item">Cesium: <span id="cesium-status">Checking...</span></div>
+        <div class="debug-item">Modules: <span id="modules-status">Loading...</span></div>
+        <div class="debug-item">Roads: <span id="roads-status">Pending</span></div>
+        <div class="debug-item">Signals: <span id="signals-status">Pending</span></div>
+        <div class="debug-item">Last Error: <span id="last-error">None</span></div>
+    </div>
+
+    <!-- Cesium Container -->
+    <div id="cesium-container"></div>
+
+    <!-- Cesium JavaScript -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
+    
+    <!-- Enhanced Traffic System Modules -->
+    <script src="src/trafficSystem.js"></script>
+    <script src="src/pciJoiner.js"></script>
+    <script src="src/trafficInfoPanel.js"></script>
+    
+    <script>
+        // Debug logging
+        function updateDebugStatus(item, status, className = 'status-ok') {
+            const element = document.getElementById(item);
+            element.textContent = status;
+            element.className = className;
+        }
+
+        function logError(error) {
+            console.error('Debug Error:', error);
+            updateDebugStatus('last-error', error.message || error, 'status-error');
+        }
+
+        // Global variables
+        let viewer;
+        let roadIndex;
+        let signalManager;
+        let trafficInfoPanel;
+
+        // Configuration
+        const CONFIG = {
+            cesiumToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJmYzU0NmUwNi05NTlkLTQ2NTUtYjJhYS1jY2E2NGVkMDE4MzQiLCJpZCI6MjQzODI3LCJpYXQiOjE3MzA2NzYzMzB9.JL8UV_SA5XH4_BHuf3t-nvvS72CdLnVr3kVJupX-EjE',
+            fgcuBounds: {
+                south: 26.4385,
+                west: -81.7950,
+                north: 26.4950,
+                east: -81.7350
+            }
+        };
+
+        // Check Cesium availability
+        function checkCesium() {
+            try {
+                if (!window.Cesium) {
+                    throw new Error('Cesium not loaded');
+                }
+                
+                updateDebugStatus('cesium-status', 'Available v' + Cesium.VERSION, 'status-ok');
+                return true;
+            } catch (error) {
+                updateDebugStatus('cesium-status', 'Error: ' + error.message, 'status-error');
+                logError(error);
+                return false;
+            }
+        }
+
+        // Check modules availability
+        function checkModules() {
+            try {
+                const modules = {
+                    'RoadIndex': typeof RoadIndex !== 'undefined',
+                    'SignalManager': typeof SignalManager !== 'undefined',
+                    'pciJoiner': typeof pciJoiner !== 'undefined',
+                    'trafficInfoPanel': typeof trafficInfoPanel !== 'undefined'
+                };
+
+                const available = Object.values(modules).filter(Boolean).length;
+                const total = Object.keys(modules).length;
+
+                if (available === total) {
+                    updateDebugStatus('modules-status', `All ${total} loaded`, 'status-ok');
+                    return true;
+                } else {
+                    const missing = Object.entries(modules)
+                        .filter(([name, loaded]) => !loaded)
+                        .map(([name]) => name);
+                    
+                    updateDebugStatus('modules-status', 
+                        `${available}/${total} (missing: ${missing.join(', ')})`, 
+                        'status-warning');
+                    return false;
+                }
+            } catch (error) {
+                updateDebugStatus('modules-status', 'Error checking', 'status-error');
+                logError(error);
+                return false;
+            }
+        }
+
+        // Initialize basic Cesium viewer
+        async function initBasicViewer() {
+            try {
+                updateDebugStatus('status', 'Initializing Cesium...', 'status-warning');
+
+                // Configure Cesium
+                Cesium.Ion.defaultAccessToken = CONFIG.cesiumToken;
+                
+                // Create viewer with free satellite imagery
+                viewer = new Cesium.Viewer('cesium-container', {
+                    baseLayerPicker: true,
+                    geocoder: false,
+                    homeButton: true,
+                    sceneModePicker: true,
+                    navigationHelpButton: false,
+                    animation: false,
+                    timeline: false,
+                    fullscreenButton: true,
+                    vrButton: false,
+                    // Use basic terrain (free)
+                    terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+                    // Use ESRI World Imagery (free satellite view)
+                    imageryProvider: new Cesium.UrlTemplateImageryProvider({
+                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        credit: 'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                    })
+                });
+
+                // Configure scene for better 3D visualization
+                viewer.scene.mode = Cesium.SceneMode.SCENE3D;
+                viewer.scene.globe.depthTestAgainstTerrain = true;
+                viewer.scene.globe.enableLighting = true;
+                
+                // Enhanced visual settings
+                viewer.scene.fog.enabled = true;
+                viewer.scene.fog.density = 0.0001;
+                viewer.scene.fog.screenSpaceErrorFactor = 2.0;
+                
+                // Better atmosphere rendering
+                viewer.scene.skyAtmosphere.show = true;
+                viewer.scene.globe.showGroundAtmosphere = true;
+                
+                // Enhanced lighting
+                viewer.scene.globe.dynamicAtmosphereLighting = true;
+                viewer.scene.globe.dynamicAtmosphereLightingFromSun = true;
+                
+                // Set camera position for FGCU with better 3D perspective
+                viewer.camera.setView({
+                    destination: Cesium.Cartesian3.fromDegrees(-81.773, 26.4628, 2000),
+                    orientation: {
+                        heading: Cesium.Math.toRadians(45.0),  // Angled view
+                        pitch: Cesium.Math.toRadians(-45.0),   // Looking down at 45 degrees
+                        roll: 0.0
+                    }
+                });
+
+                // Add smooth camera controls
+                viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
+                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 100;
+                viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000;
+
+                updateDebugStatus('status', 'Cesium viewer ready', 'status-ok');
+                return true;
+                
+            } catch (error) {
+                updateDebugStatus('status', 'Viewer init failed', 'status-error');
+                logError(error);
+                return false;
+            }
+        }
+
+        // Test enhanced system
+        async function testEnhancedSystem() {
+            try {
+                if (!checkModules()) {
+                    throw new Error('Required modules not available');
+                }
+
+                updateDebugStatus('status', 'Testing enhanced features...', 'status-warning');
+
+                // Test road index
+                roadIndex = new RoadIndex();
+                updateDebugStatus('roads-status', 'RoadIndex created', 'status-ok');
+
+                // Test signal manager  
+                signalManager = new SignalManager(viewer, roadIndex);
+                updateDebugStatus('signals-status', 'SignalManager created', 'status-ok');
+
+                // Add some test data
+                const testRoad = {
+                    id: 'test_road_1',
+                    name: 'Test Road',
+                    kind: 'primary',
+                    positions: [-81.773, 26.463, -81.772, 26.464],
+                    bbox: [-81.773, 26.463, -81.772, 26.464],
+                    length: 100,
+                    midpoint: [-81.7725, 26.4635],
+                    metadata: { pci: 85, pciCondition: 'Good' }
+                };
+
+                roadIndex.addRoad(testRoad);
+                
+                // Create enhanced road visualization
+                const positions = Cesium.Cartesian3.fromDegreesArray(testRoad.positions);
+                
+                viewer.entities.add({
+                    name: testRoad.name,
+                    polyline: {
+                        positions: positions,
+                        clampToGround: true,
+                        width: 8,
+                        material: new Cesium.PolylineOutlineMaterialProperty({
+                            color: Cesium.Color.CYAN.withAlpha(0.8),
+                            outlineColor: Cesium.Color.DARKBLUE,
+                            outlineWidth: 2
+                        }),
+                        extrudedHeight: 5,  // Slightly raised for 3D effect
+                        shadows: Cesium.ShadowMode.ENABLED
+                    }
+                });
+
+                // Add a traffic light at the road endpoint
+                const lightPosition = Cesium.Cartesian3.fromDegrees(-81.772, 26.464, 10);
+                viewer.entities.add({
+                    name: 'Test Traffic Light',
+                    position: lightPosition,
+                    cylinder: {
+                        length: 8,
+                        topRadius: 0.5,
+                        bottomRadius: 0.5,
+                        material: Cesium.Color.YELLOW.withAlpha(0.8),
+                        outline: true,
+                        outlineColor: Cesium.Color.BLACK,
+                        shadows: Cesium.ShadowMode.ENABLED
+                    },
+                    label: {
+                        text: '🚦 Traffic Signal',
+                        font: '14pt Arial',
+                        fillColor: Cesium.Color.WHITE,
+                        outlineColor: Cesium.Color.BLACK,
+                        outlineWidth: 2,
+                        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                        pixelOffset: new Cesium.Cartesian2(0, -40),
+                        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                    }
+                });
+
+                updateDebugStatus('roads-status', '1 test road created', 'status-ok');
+                updateDebugStatus('status', 'Enhanced system working!', 'status-ok');
+
+                return true;
+
+            } catch (error) {
+                updateDebugStatus('status', 'Enhanced system failed', 'status-error');
+                logError(error);
+                return false;
+            }
+        }
+
+        // Main initialization
+        async function init() {
+            try {
+                updateDebugStatus('status', 'Starting initialization...', 'status-warning');
+
+                // Check dependencies
+                if (!checkCesium()) {
+                    return;
+                }
+
+                // Initialize basic viewer
+                if (!await initBasicViewer()) {
+                    return;
+                }
+
+                // Wait a moment for everything to settle
+                setTimeout(async () => {
+                    try {
+                        await testEnhancedSystem();
+                    } catch (error) {
+                        logError(error);
+                        updateDebugStatus('status', 'Using basic viewer only', 'status-warning');
+                    }
+                }, 1000);
+
+            } catch (error) {
+                updateDebugStatus('status', 'Initialization failed', 'status-error');
+                logError(error);
+            }
+        }
+
+        // Initialize when ready
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🔍 Debug viewer starting...');
+            init();
+        });
+
+        // Global error handler
+        window.addEventListener('error', (event) => {
+            logError(event.error || event.message);
+        });
+    </script>
+</body>
+</html>

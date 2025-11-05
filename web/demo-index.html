@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FGCU Traffic Demo - Simple Cesium View</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    html, body, #cesiumContainer {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    /* small UI button to open the full traffic viewer */
+    .top-right-link {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 1000;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <a class="top-right-link" href="/traffic-viewer.html" target="_blank">Open full Traffic Viewer</a>
+  <div id="cesiumContainer"></div>
+  <script>
+    // Ion token used elsewhere in the project; kept here for demo
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxZDFhZTI5OS0zNTA5LTQ5NjgtOWYzZi1jYWRmZjhjOGQ5NzgiLCJpZCI6MzUzMTM3LCJpYXQiOjE3NjE4NTQ4MDh9.j7spUK_a3OJ_cnjL-KosmmMgPZMcq5lfrqlmND27Vf0';
+
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      globe: false,
+      skyAtmosphere: new Cesium.SkyAtmosphere(),
+      baseLayerPicker: false,
+      terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+      animation: false,
+      timeline: false,
+      navigationHelpButton: false,
+      fullscreenButton: true
+    });
+
+    // Load a 3D tileset from Ion (your tileset id)
+    Cesium.Cesium3DTileset.fromIonAssetId(2275207)
+      .then(function(tileset) {
+        viewer.scene.primitives.add(tileset);
+        tileset.maximumScreenSpaceError = 16;
+        tileset.maximumMemoryUsage = 512;
+
+        // Once tileset ready, add a subtle light / viewer settings for demo look
+        try {
+          viewer.scene.globe.enableLighting = false;
+          if (typeof viewer.scene.highDynamicRange !== 'undefined') viewer.scene.highDynamicRange = false;
+          viewer.scene.fog.enabled = false;
+          viewer.scene.skyAtmosphere.show = false;
+        } catch (e) { /* ignore older Cesium builds */ }
+
+        // Fly camera to the campus with a demo altitude
+        setTimeout(function() {
+          viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(-81.773, 26.4628, 5000),
+            orientation: {
+              heading: Cesium.Math.toRadians(45.0),
+              pitch: Cesium.Math.toRadians(-40.0)
+            },
+            duration: 2
+          });
+        }, 600);
+      })
+      .catch(function(error) {
+        console.log('Error loading tileset:', error);
+      });
+
+    // Helpful console message
+    console.log('Demo Cesium viewer initialized.');
+  </script>
+</body>
+</html>
