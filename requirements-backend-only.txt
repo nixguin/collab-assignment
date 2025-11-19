@@ -10,6 +10,7 @@ websockets==12.0
 scikit-learn==1.3.2
 numpy==1.24.3
 pandas==2.0.3
+pennylane
 
 # Data Processing
 requests==2.31.0
