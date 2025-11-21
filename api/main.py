@@ -15,6 +15,14 @@ from pydantic import BaseModel
 import logging
 import os
 from contextlib import asynccontextmanager
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+from ai.qrl_service import get_segment_status  # QRL + traffic forecaster wrapper
 
 # Configure logging
 logging.basicConfig(
@@ -252,6 +260,30 @@ async def update_traffic_data():
     logger.info("Updated traffic data for all segments")
 
 # API Endpoints
+
+# ========================================
+# QRL + Traffic AI Endpoint
+# ========================================
+
+@app.get("/api/qrl/{segment_id}")
+async def get_qrl_segment_status(segment_id: str, hours_ahead: int = 1):
+    """
+    Get AI traffic forecast + QRL risk classification for a segment.
+
+    Example:
+      /api/qrl/fgcu_blvd?hours_ahead=3
+    """
+    try:
+        result = get_segment_status(segment_id, hours_ahead)
+    except Exception as e:
+        logger.error(f"Error in QRL segment status: {e}")
+        raise HTTPException(status_code=500, detail="QRL processing error")
+
+    # If qrl_service returned an error dict
+    if isinstance(result, dict) and result.get("error"):
+        raise HTTPException(status_code=404, detail=result["error"])
+
+    return result
 
 @app.get("/")
 async def root():
