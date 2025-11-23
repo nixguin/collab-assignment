@@ -18,11 +18,18 @@ from contextlib import asynccontextmanager
 import sys
 from pathlib import Path
 
+# Ensure repository root is on sys.path so internal imports work when running
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from ai.qrl_service import get_segment_status  # QRL + traffic forecaster wrapper
+# Optional QRL service wrapper (may not be present in all environments)
+try:
+    from ai.qrl_service import get_segment_status  # QRL + traffic forecaster wrapper
+    qrl_available = True
+except Exception:
+    get_segment_status = None
+    qrl_available = False
 
 # Configure logging
 logging.basicConfig(
@@ -261,30 +268,34 @@ async def update_traffic_data():
 
 # API Endpoints
 
-# ========================================
-# QRL + Traffic AI Endpoint
-# ========================================
+if qrl_available and get_segment_status:
+    # ========================================
+    # QRL + Traffic AI Endpoint
+    # ========================================
 
-@app.get("/api/qrl/{segment_id}")
-async def get_qrl_segment_status(segment_id: str, hours_ahead: int = 1):
-    """
-    Get AI traffic forecast + QRL risk classification for a segment.
+    @app.get("/api/qrl/{segment_id}")
+    async def get_qrl_segment_status(segment_id: str, hours_ahead: int = 1):
+        """
+        Get AI traffic forecast + QRL risk classification for a segment.
 
-    Example:
-      /api/qrl/fgcu_blvd?hours_ahead=3
-    """
-    try:
-        result = get_segment_status(segment_id, hours_ahead)
-    except Exception as e:
-        logger.error(f"Error in QRL segment status: {e}")
-        raise HTTPException(status_code=500, detail="QRL processing error")
+        Example:
+          /api/qrl/fgcu_blvd?hours_ahead=3
+        """
+        try:
+            # call into the optional qrl wrapper (may be sync or async)
+            result = get_segment_status(segment_id, hours_ahead)
+            # if coroutine, await it
+            if asyncio.iscoroutine(result):
+                result = await result
+        except Exception as e:
+            logger.error(f"Error in QRL segment status: {e}")
+            raise HTTPException(status_code=500, detail="QRL processing error")
 
-    # If qrl_service returned an error dict
-    if isinstance(result, dict) and result.get("error"):
-        raise HTTPException(status_code=404, detail=result["error"])
+        # If qrl_service returned an error dict
+        if isinstance(result, dict) and result.get("error"):
+            raise HTTPException(status_code=404, detail=result["error"])
 
-    return result
-
+        return result
 @app.get("/")
 async def root():
     """Root endpoint with API information"""
