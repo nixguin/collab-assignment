@@ -1,3 +1,0 @@
-# Netlify redirects
-/traffic-viewer.html  /index.html  200
-/*  /index.html  200

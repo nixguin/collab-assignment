@@ -1,8 +1,0 @@
-[build]
-  # No build command needed - pure static HTML
-  command = "echo 'No build needed'"
-  publish = "web"
-  
-[build.environment]
-  # Skip Python dependencies
-  PYTHON_VERSION = "3.11"
