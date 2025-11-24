@@ -7,7 +7,7 @@ This module combines:
 - FGCUTrafficForecaster (classical ML)
 - QRLTrafficAgent (quantum policy)
 
-into a single function that returns a JSON-like dict
+Into a single function that returns a JSON-like dict
 with both forecast and risk classification.
 """
 
