@@ -1,510 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FGCU Integrated Traffic & Pavement Viewer - QRL Analysis</title>
-    
-    <!-- External CSS -->
-    <link rel="stylesheet" href="css/integrated-traffic-viewer.css">
-
-        /* Main Container */
-        #map {
-            width: 100vw;
-            height: 100vh;
-            position: relative;
-        }
-
-        /* Street View Overlay */
-        #street-view {
-            position: fixed;
-            top: 70px;
-            left: 0;
-            width: 100vw;
-            height: calc(100vh - 70px);
-            display: none;
-            z-index: 1500;
-            background: #000;
-        }
-
-        #street-view.active {
-            display: block !important;
-        }
-
-        /* Ensure Street View renders properly */
-        #street-view > div {
-            width: 100% !important;
-            height: 100% !important;
-        }
-
-        /* Top Navigation Bar */
-        #navbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: rgba(20, 20, 20, 0.98);
-            color: white;
-            padding: 15px 30px;
-            z-index: 2000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        #navbar h1 {
-            font-size: 20px;
-            color: #00d4ff;
-        }
-
-        #navbar .subtitle {
-            font-size: 12px;
-            color: #999;
-            margin-top: 3px;
-        }
-
-        #navbar #status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #00ff00;
-            box-shadow: 0 0 10px rgba(0,255,0,0.5);
-        }
-
-        /* View Toggle Buttons */
-        .view-controls {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 1500;
-        }
-
-        .view-btn {
-            background: rgba(0, 212, 255, 0.9);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            transition: all 0.3s ease;
-            min-width: 180px;
-            text-align: left;
-        }
-
-        .view-btn:hover {
-            background: rgba(0, 212, 255, 1);
-            transform: translateX(-5px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-        }
-
-        .view-btn.active {
-            background: rgba(0, 255, 0, 0.9);
-        }
-
-        /* Traffic Legend */
-        #legend {
-            position: fixed;
-            top: 80px;
-            left: 20px;
-            background: rgba(30, 30, 30, 0.95);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            font-size: 14px;
-            min-width: 240px;
-            max-height: calc(100vh - 100px);
-            overflow-y: auto;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.1);
-            z-index: 1000;
-        }
-
-        #legend h3 {
-            margin: 0 0 15px 0;
-            color: #00d4ff;
-            font-size: 18px;
-        }
-
-        .legend-section {
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .legend-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-
-        .legend-section h4 {
-            color: #ffa500;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin: 8px 0;
-        }
-
-        .color-box {
-            width: 24px;
-            height: 6px;
-            margin-right: 12px;
-            border-radius: 3px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        /* Pavement Condition Panel */
-        #condition-panel {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(30, 30, 30, 0.95);
-            color: white;
-            padding: 20px 25px;
-            border-radius: 12px;
-            min-width: 500px;
-            max-width: 800px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.1);
-            z-index: 1000;
-            display: none;
-        }
-
-        #condition-panel.active {
-            display: block;
-        }
-
-        #condition-panel h3 {
-            color: #00d4ff;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-
-        .condition-info {
-            margin: 12px 0;
-        }
-
-        .condition-label {
-            color: #aaa;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
-        }
-
-        .pci-score {
-            font-size: 36px;
-            font-weight: bold;
-            display: flex;
-            align-items: baseline;
-            gap: 5px;
-        }
-
-        .pci-number {
-            font-size: 48px;
-        }
-
-        .pci-max {
-            color: #666;
-            font-size: 24px;
-        }
-
-        .condition-value {
-            font-size: 20px;
-            font-weight: bold;
-            padding: 5px 12px;
-            border-radius: 6px;
-            display: inline-block;
-        }
-
-        /* Color classes based on condition */
-        .condition-excellent { color: #00ff00; background: rgba(0, 255, 0, 0.1); }
-        .condition-good { color: #7cfc00; background: rgba(124, 252, 0, 0.1); }
-        .condition-fair { color: #ffd700; background: rgba(255, 215, 0, 0.1); }
-        .condition-poor { color: #ff8c00; background: rgba(255, 140, 0, 0.1); }
-        .condition-critical { color: #ff4444; background: rgba(255, 68, 68, 0.1); }
-
-        .location-info {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255,255,255,0.2);
-            font-size: 13px;
-            color: #ccc;
-        }
-
-        .loading-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #00d4ff;
-        }
-
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(0, 212, 255, 0.3);
-            border-top-color: #00d4ff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Traffic Data Display */
-        .traffic-info {
-            margin-top: 15px;
-            padding: 15px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
-            font-size: 13px;
-        }
-
-        .traffic-info h4 {
-            color: #ffa500;
-            margin-bottom: 10px;
-        }
-
-        .traffic-metric {
-            display: flex;
-            justify-content: space-between;
-            margin: 5px 0;
-        }
-
-        .traffic-metric .label {
-            color: #aaa;
-        }
-
-        .traffic-metric .value {
-            color: white;
-            font-weight: bold;
-        }
-
-        /* QRL Analysis Display */
-        #analysis-details {
-            margin-top: 15px;
-            padding: 15px;
-            background: rgba(138, 43, 226, 0.1);
-            border-radius: 8px;
-            border: 1px solid rgba(138, 43, 226, 0.3);
-        }
-
-        .risk-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 20px;
-            margin: 10px 0;
-        }
-
-        .risk-emoji {
-            font-size: 32px;
-        }
-
-        .probability-bar {
-            height: 8px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 5px;
-        }
-
-        .probability-fill {
-            height: 100%;
-            transition: width 0.5s ease;
-        }
-
-        .distress-list {
-            list-style: none;
-            padding: 0;
-            margin: 10px 0;
-        }
-
-        .distress-list li {
-            padding: 5px 0;
-            color: #ffa500;
-        }
-
-        .distress-list li:before {
-            content: "⚠️ ";
-            margin-right: 5px;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            #legend, #condition-panel {
-                min-width: auto;
-                left: 10px;
-                right: 10px;
-                transform: none;
-            }
-
-</head>
-<body>
-    <!-- Navigation Bar -->
-    <div id="navbar">
-        <div>
-            <h1>🚦 FGCU Integrated Traffic & Pavement Viewer</h1>
-            <div class="subtitle">Real-time Traffic + QRL Pavement Analysis using Google Street View</div>
-        </div>
-        <div id="status">
-            <span class="status-dot"></span>
-            <span>Ready</span>
-        </div>
-    </div>
-
-    <!-- View Controls -->
-    <div class="view-controls">
-        <button class="view-btn" id="street-view-btn" onclick="toggleStreetView()">
-            📷 View Street View
-        </button>
-        <button class="view-btn" id="traffic-btn" onclick="toggleTraffic()">
-            🚦 Toggle Traffic Layer
-        </button>
-        <button class="view-btn" id="analyze-btn" onclick="analyzePavement()" style="background: rgba(138, 43, 226, 0.9);">
-            ⚛️ Analyze Pavement (QRL)
-        </button>
-    </div>
-
-    <!-- Legend Panel -->
-    <div id="legend">
-        <h3>🚦 Traffic & Pavement</h3>
-        
-        <div class="legend-section">
-            <h4>Traffic Levels</h4>
-            <div class="legend-item">
-                <div class="color-box" style="background: #ff4444;"></div>
-                <span>Heavy - High congestion</span>
-            </div>
-            <div class="legend-item">
-                <div class="color-box" style="background: #ff8c00;"></div>
-                <span>Moderate - Some delays</span>
-            </div>
-            <div class="legend-item">
-                <div class="color-box" style="background: #ffd700;"></div>
-                <span>Light - Normal flow</span>
-            </div>
-            <div class="legend-item">
-                <div class="color-box" style="background: #32cd32;"></div>
-                <span>Minimal - Light traffic</span>
-            </div>
-        </div>
-
-        <div class="legend-section">
-            <h4>QRL Risk Levels</h4>
-            <div class="legend-item">
-                <span style="font-size: 20px; margin-right: 10px;">🟢</span>
-                <span>NORMAL - Excellent</span>
-            </div>
-            <div class="legend-item">
-                <span style="font-size: 20px; margin-right: 10px;">🟡</span>
-                <span>WATCH - Monitor</span>
-            </div>
-            <div class="legend-item">
-                <span style="font-size: 20px; margin-right: 10px;">🟠</span>
-                <span>CONGESTED - Action needed</span>
-            </div>
-            <div class="legend-item">
-                <span style="font-size: 20px; margin-right: 10px;">🔴</span>
-                <span>CRITICAL - Urgent repair</span>
-            </div>
-        </div>
-
-        <div class="legend-section" style="border-bottom: none;">
-            <div style="font-size: 11px; color: #666;">
-                Last update: <span id="last-update">--:--</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Google Maps View -->
-    <div id="map"></div>
-
-    <!-- Google Street View (Overlay) -->
-    <div id="street-view"></div>
-
-    <!-- Pavement Condition Panel -->
-    <div id="condition-panel">
-        <h3>📊 Pavement Condition Analysis</h3>
-        
-        <div class="condition-info">
-            <div class="condition-label">Pavement Condition Index (PCI)</div>
-            <div class="pci-score">
-                <span class="pci-number condition-good" id="pci-value">--</span>
-                <span class="pci-max">/ 100</span>
-            </div>
-        </div>
-
-        <div class="condition-info">
-            <div class="condition-label">Condition Rating</div>
-            <div class="condition-value condition-good" id="condition-rating">Click "Analyze Pavement" to begin</div>
-        </div>
-
-        <div class="location-info">
-            <div><strong>Location:</strong></div>
-            <div id="location-coords">Click on the map to select a location</div>
-            <div id="location-address" style="margin-top: 5px; color: #aaa;"></div>
-        </div>
-
-        <div id="traffic-data" class="traffic-info" style="display: none;">
-            <h4>🚦 Traffic Data</h4>
-            <div class="traffic-metric">
-                <span class="label">Current Volume:</span>
-                <span class="value" id="traffic-volume">--</span>
-            </div>
-            <div class="traffic-metric">
-                <span class="label">Traffic Level:</span>
-                <span class="value" id="traffic-level">--</span>
-            </div>
-            <div class="traffic-metric">
-                <span class="label">Speed (mph):</span>
-                <span class="value" id="traffic-speed">--</span>
-            </div>
-        </div>
-
-        <div id="loading" class="loading-indicator" style="display: none; margin-top: 15px;">
-            <div class="spinner"></div>
-            <span>Analyzing with Quantum ML...</span>
-        </div>
-
-        <div id="analysis-details" style="display: none;"></div>
-    </div>
-
-    <!-- Google Maps JavaScript API -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAvEovX0VVfU_o__8MFnj3oVmL_ba0wbLA&callback=initMap&libraries=places" async defer></script>
-    
-    <!-- External JavaScript -->
-    <script src="js/integrated-traffic-viewer.js"></script>
-        
+        let map;
+        let panorama;
+        let marker;
+        let geocoder;
+        let trafficLayer;
+        let streetViewService;
+        let selectedLocation = null;
+        let streetViewActive = false;
+        let trafficLayerActive = false;
+        // FGCU coordinates
+        const FGCU_CENTER = { lat: 26.4625, lng: -81.7717 };
+        // Backend API base URL
+        const API_BASE = window.location.origin;
         // Demo mode flag - set to true to use simulated QRL data without API
         const USE_SIMULATED_QRL = false;
-        
         // Street View search radius (meters)
         const STREETVIEW_MAX_DISTANCE = 50;
-
         function initMap() {
             // Initialize geocoder and Street View service
             geocoder = new google.maps.Geocoder();
             streetViewService = new google.maps.StreetViewService();
-
             // Initialize Map with dark theme
             map = new google.maps.Map(document.getElementById('map'), {
                 center: FGCU_CENTER,
@@ -553,10 +67,8 @@
                     }
                 ]
             });
-
             // Initialize traffic layer
             trafficLayer = new google.maps.TrafficLayer();
-
             // Initialize Street View Panorama
             const streetViewDiv = document.getElementById('street-view');
             panorama = new google.maps.StreetViewPanorama(
@@ -570,14 +82,11 @@
                     enableCloseButton: false
                 }
             );
-
             map.setStreetView(panorama);
-
             // Click event to select location
             map.addListener('click', (event) => {
                 selectLocation(event.latLng);
             });
-
             // Listen to Street View position changes
             panorama.addListener('position_changed', () => {
                 if (streetViewActive && panorama.getPosition()) {
@@ -585,14 +94,11 @@
                     updateLocationDisplay(selectedLocation);
                 }
             });
-
             updateStatus('Map initialized - Click to select location');
             updateLastUpdate();
         }
-
         async function selectLocation(location) {
             updateStatus('Checking location and Street View availability...');
-
             // Check if Street View is available near this location
             try {
                 const panoramaData = await new Promise((resolve, reject) => {
@@ -607,15 +113,12 @@
                         }
                     });
                 });
-
                 // Street View found - snap to the panorama location
                 selectedLocation = panoramaData.location.latLng;
-
                 // Remove existing marker
                 if (marker) {
                     marker.setMap(null);
                 }
-
                 // Add new marker at the snapped location
                 marker = new google.maps.Marker({
                     position: selectedLocation,
@@ -630,29 +133,22 @@
                         strokeWeight: 2
                     }
                 });
-
                 // Update location display
                 updateLocationDisplay(selectedLocation);
-
                 // Show condition panel
                 document.getElementById('condition-panel').classList.add('active');
-
                 updateStatus('Location selected - Click "View Street View" or "Analyze Pavement"');
-
             } catch (error) {
                 // No Street View available
                 console.log('Street View not available:', error);
-                
                 // Don't show the QRL panel - show a message instead
                 showNoDataMessage('No Street View or pavement data available for this location. Please click on a main road.');
                 updateStatus('No Street View data available at this location');
             }
         }
-
         function updateLocationDisplay(location) {
             const coords = document.getElementById('location-coords');
             coords.textContent = `${location.lat().toFixed(6)}, ${location.lng().toFixed(6)}`;
-
             // Reverse geocode to get address
             geocoder.geocode({ location: location }, (results, status) => {
                 const addressEl = document.getElementById('location-address');
@@ -663,11 +159,9 @@
                 }
             });
         }
-
         function showNoDataMessage(message) {
             // Hide the condition panel
             document.getElementById('condition-panel').classList.remove('active');
-            
             // Show a toast-style message
             const toast = document.createElement('div');
             toast.style.cssText = `
@@ -687,7 +181,6 @@
             `;
             toast.textContent = message;
             document.body.appendChild(toast);
-
             // Remove after 4 seconds
             setTimeout(() => {
                 toast.style.transition = 'opacity 0.3s ease';
@@ -695,56 +188,45 @@
                 setTimeout(() => document.body.removeChild(toast), 300);
             }, 4000);
         }
-
         function toggleStreetView() {
             if (!selectedLocation) {
                 alert('Please click on the map to select a location first');
                 return;
             }
-
             const streetViewEl = document.getElementById('street-view');
             const btn = document.getElementById('street-view-btn');
-
             if (!streetViewActive) {
                 // Activate Street View
                 console.log('Activating Street View at:', selectedLocation.lat(), selectedLocation.lng());
-                
                 updateStatus('Loading Street View...');
-
                 // Street View should already be available since selectLocation validates it
                 streetViewService.getPanorama({
                     location: selectedLocation,
                     radius: STREETVIEW_MAX_DISTANCE
                 }, (data, status) => {
                     console.log('Street View status:', status);
-                    
                     if (status === 'OK' && data) {
                         console.log('Street View available, activating...');
-                        
                         // First show the Street View div
                         streetViewEl.style.display = 'block';
                         streetViewEl.classList.add('active');
-                        
                         // Then activate the panorama
                         panorama.setPosition(data.location.latLng);
                         panorama.setPov({
                             heading: 34,
                             pitch: 0
                         });
-                        
                         // Force panorama to be visible
                         setTimeout(() => {
                             panorama.setVisible(true);
                             console.log('Panorama visibility set to true');
                         }, 100);
-                        
                         // Update button
                         btn.textContent = '❌ Exit Street View';
                         btn.classList.add('active');
                         btn.style.background = 'rgba(255, 68, 68, 0.9)';
                         streetViewActive = true;
                         updateStatus('Street View active');
-                        
                         console.log('Street View should now be visible');
                     } else {
                         // Street View not available (shouldn't happen since selectLocation validates)
@@ -766,11 +248,9 @@
                 updateStatus('Street View closed');
             }
         }
-
         function toggleTraffic() {
             trafficLayerActive = !trafficLayerActive;
             const btn = document.getElementById('traffic-btn');
-
             if (trafficLayerActive) {
                 trafficLayer.setMap(map);
                 btn.classList.add('active');
@@ -783,25 +263,21 @@
                 updateStatus('Traffic layer disabled');
             }
         }
-
         async function analyzePavement() {
             if (!selectedLocation) {
                 alert('Please click on the map to select a location first');
                 return;
             }
-
             const loadingEl = document.getElementById('loading');
             const pciValue = document.getElementById('pci-value');
             const conditionRating = document.getElementById('condition-rating');
             const analysisDetails = document.getElementById('analysis-details');
-            
             // Show loading
             loadingEl.style.display = 'flex';
             pciValue.textContent = '--';
             conditionRating.textContent = 'Analyzing with Quantum ML...';
             analysisDetails.style.display = 'none';
             updateStatus('⚛️ Running QRL analysis...');
-
             try {
                 // If in demo mode, use simulated data directly
                 if (USE_SIMULATED_QRL) {
@@ -811,7 +287,6 @@
                     loadingEl.style.display = 'none';
                     return;
                 }
-
                 // Get current POV if street view is active
                 let heading = 0;
                 let pitch = 0;
@@ -820,11 +295,9 @@
                     heading = pov.heading;
                     pitch = pov.pitch;
                 }
-
                 // Call backend API for pavement analysis with timeout
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
                 const response = await fetch(`${API_BASE}/api/pavement-condition`, {
                     method: 'POST',
                     headers: {
@@ -838,48 +311,37 @@
                     }),
                     signal: controller.signal
                 });
-
                 clearTimeout(timeoutId);
-
                 if (!response.ok) {
                     throw new Error(`API request failed: ${response.status}`);
                 }
-
                 const data = await response.json();
-                
                 // Check if API returned valid QRL data
                 if (data && data.pci !== undefined && data.condition) {
                     // Display real API results
                     displayPavementCondition(data, false);
-                    
                     // Fetch traffic data for this location
                     await fetchTrafficData(selectedLocation);
-                    
                     updateStatus('✅ QRL analysis complete (real data)');
                 } else {
                     throw new Error('Invalid API response format');
                 }
-
             } catch (error) {
                 console.error('Error analyzing pavement:', error);
-                
                 // API failed - show message instead of fake data
                 loadingEl.style.display = 'none';
                 showNoDataMessage('QRL analysis not available. API connection failed or timed out.');
                 updateStatus('❌ QRL analysis unavailable');
-                
                 // Hide the condition panel since we have no real data
                 document.getElementById('condition-panel').classList.remove('active');
             } finally {
                 loadingEl.style.display = 'none';
             }
         }
-
         async function fetchTrafficData(location) {
             try {
                 // Try to fetch traffic data from QRL endpoint
                 const response = await fetch(`${API_BASE}/api/qrl/road_segment_1`);
-                
                 if (response.ok) {
                     const data = await response.json();
                     displayTrafficData(data);
@@ -888,31 +350,24 @@
                 console.log('Traffic data not available:', error);
             }
         }
-
         function displayTrafficData(data) {
             const trafficDataEl = document.getElementById('traffic-data');
             trafficDataEl.style.display = 'block';
-
             document.getElementById('traffic-volume').textContent = data.current_volume || '--';
             document.getElementById('traffic-level').textContent = data.risk_label || '--';
             document.getElementById('traffic-speed').textContent = data.speed || '--';
         }
-
         function displayPavementCondition(data, isSimulated = false) {
             const pciValue = document.getElementById('pci-value');
             const conditionRating = document.getElementById('condition-rating');
-            
             // Update PCI value
             pciValue.textContent = Math.round(data.pci);
-            
             // Update condition rating
             conditionRating.textContent = data.condition;
-            
             // Update colors based on PCI score
             const colorClass = getConditionColorClass(data.pci);
             pciValue.className = `pci-number ${colorClass}`;
             conditionRating.className = `condition-value ${colorClass}`;
-            
             // Display QRL analysis if available
             if (data.details && data.details.qrl_analysis) {
                 displayQRLAnalysis(data.details.qrl_analysis, data.details, isSimulated);
@@ -920,11 +375,9 @@
                 displayBasicDetails(data.details || {});
             }
         }
-
         function displayQRLAnalysis(qrlData, details, isSimulated = false) {
             const container = document.getElementById('analysis-details');
             container.style.display = 'block';
-            
             // Build QRL analysis display
             const riskEmoji = {
                 'NORMAL': '🟢',
@@ -932,13 +385,11 @@
                 'CONGESTED': '🟠',
                 'CRITICAL': '🔴'
             }[qrlData.risk_label] || '⚪';
-            
             let html = `
                 <div style="margin-bottom: 12px;">
                     <strong>⚛️ Quantum ML Analysis:</strong>
                     ${isSimulated ? '<span style="color: #ffa500; font-size: 11px; margin-left: 8px;">(Demo Mode)</span>' : ''}
                 </div>
-                
                 <div class="risk-indicator">
                     <span class="risk-emoji">${riskEmoji}</span>
                     <div>
@@ -946,12 +397,10 @@
                         <div style="font-size: 12px; color: #aaa;">Quantum Confidence: ${(qrlData.quantum_confidence * 100).toFixed(1)}%</div>
                     </div>
                 </div>
-
                 <div style="margin: 15px 0;">
                     <strong>Risk Probability Distribution:</strong>
                 </div>
             `;
-
             // Display probability bars for each risk level
             const riskLevels = ['NORMAL', 'WATCH', 'CONGESTED', 'CRITICAL'];
             const riskColors = {
@@ -960,12 +409,10 @@
                 'CONGESTED': '#ff8c00',
                 'CRITICAL': '#ff4444'
             };
-
             riskLevels.forEach(level => {
                 const prob = qrlData.risk_probabilities[level] || 0;
                 const percentage = (prob * 100).toFixed(1);
                 const emoji = { 'NORMAL': '🟢', 'WATCH': '🟡', 'CONGESTED': '🟠', 'CRITICAL': '🔴' }[level];
-                
                 html += `
                     <div style="margin: 8px 0;">
                         <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
@@ -978,7 +425,6 @@
                     </div>
                 `;
             });
-
             // Display distress types and recommendations
             if (details.distress_types && details.distress_types.length > 0) {
                 html += `
@@ -990,7 +436,6 @@
                     </div>
                 `;
             }
-
             if (details.recommended_action) {
                 html += `
                     <div style="margin-top: 10px; padding: 10px; background: rgba(255,165,0,0.1); border-radius: 6px; border-left: 3px solid #ffa500;">
@@ -999,22 +444,17 @@
                     </div>
                 `;
             }
-
             html += `
                 <div style="margin-top: 15px; font-size: 11px; color: #666; text-align: center;">
                     Analysis Method: ${qrlData.analysis_method || 'Quantum Reinforcement Learning'}
                 </div>
             `;
-
             container.innerHTML = html;
         }
-
         function displayBasicDetails(details) {
             const container = document.getElementById('analysis-details');
             container.style.display = 'block';
-
             let html = '<div style="color: #aaa; font-size: 13px;">';
-            
             if (details.distress_types) {
                 html += `<strong>Distress Types:</strong> ${details.distress_types.join(', ')}<br>`;
             }
@@ -1024,11 +464,9 @@
             if (details.recommended_action) {
                 html += `<strong>Action:</strong> ${details.recommended_action}`;
             }
-
             html += '</div>';
             container.innerHTML = html;
         }
-
         function getConditionColorClass(pci) {
             if (pci >= 85) return 'condition-excellent';
             if (pci >= 70) return 'condition-good';
@@ -1036,7 +474,6 @@
             if (pci >= 40) return 'condition-poor';
             return 'condition-critical';
         }
-
         /**
          * Generate simulated QRL data for demo mode
          * This function is ONLY used when USE_SIMULATED_QRL = true
@@ -1046,13 +483,11 @@
             // Generate semi-realistic mock data based on location
             const seed = location.lat() * location.lng() * 10000;
             const pci = 40 + (Math.abs(Math.sin(seed)) * 50); // PCI between 40-90
-            
             // Generate QRL data based on PCI score
             let riskLabel = 'NORMAL';
             let riskProbs = { NORMAL: 0.7, WATCH: 0.2, CONGESTED: 0.08, CRITICAL: 0.02 };
             let distressTypes = ['Minor Surface Wear'];
             let action = 'No intervention needed';
-
             if (pci < 55) {
                 riskLabel = 'CRITICAL';
                 riskProbs = { NORMAL: 0.05, WATCH: 0.15, CONGESTED: 0.30, CRITICAL: 0.50 };
@@ -1069,7 +504,6 @@
                 distressTypes = ['Light Cracking', 'Surface Oxidation'];
                 action = 'Schedule routine inspection';
             }
-
             return {
                 pci: pci,
                 condition: getConditionRating(pci),
@@ -1092,7 +526,6 @@
                 }
             };
         }
-
         function getConditionRating(pci) {
             if (pci >= 85) return 'Excellent';
             if (pci >= 70) return 'Good';
@@ -1100,7 +533,6 @@
             if (pci >= 40) return 'Poor';
             return 'Critical';
         }
-
         function updateStatus(message) {
             const statusEl = document.getElementById('status');
             statusEl.innerHTML = `
@@ -1108,12 +540,16 @@
                 <span>${message}</span>
             `;
         }
-
         function updateLastUpdate() {
             const now = new Date();
             const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             document.getElementById('last-update').textContent = timeStr;
         }
-
-</body>
-</html>
+        // Update time every minute
+        setInterval(updateLastUpdate, 60000);
+        // Handle initialization errors
+        window.addEventListener('error', (e) => {
+            if (e.message.includes('Google Maps')) {
+                alert('Error loading Google Maps. Please check your API key.');
+            }
+        });
