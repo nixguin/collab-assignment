@@ -305,6 +305,33 @@ body {
     left: 0;
 }
 
+/* Traffic Button */
+.traffic-btn {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+    z-index: 1500;
+    transition: all 0.3s ease;
+}
+
+.traffic-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+}
+
+.traffic-btn.active {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     #container {

@@ -2,6 +2,8 @@
         let panorama;
         let marker;
         let geocoder;
+        let trafficLayer;
+        let trafficLayerActive = false;
         // FGCU coordinates
         const FGCU_CENTER = { lat: 26.4625, lng: -81.7717 };
         function initMap() {
@@ -339,6 +341,31 @@
                 ${message}
             `;
         }
+        
+        function toggleTraffic() {
+            const trafficBtn = document.getElementById('traffic-btn');
+            
+            if (!trafficLayer) {
+                trafficLayer = new google.maps.TrafficLayer();
+            }
+            
+            if (!trafficLayerActive) {
+                // Show traffic layer
+                trafficLayer.setMap(map);
+                trafficBtn.classList.add('active');
+                trafficBtn.innerHTML = '✅ Hide Traffic';
+                trafficLayerActive = true;
+                updateStatus('Traffic layer active - Real-time traffic conditions');
+            } else {
+                // Hide traffic layer
+                trafficLayer.setMap(null);
+                trafficBtn.classList.remove('active');
+                trafficBtn.innerHTML = '🚦 Show Traffic';
+                trafficLayerActive = false;
+                updateStatus('Traffic layer hidden');
+            }
+        }
+        
         // Handle initialization errors
         window.addEventListener('error', (e) => {
             if (e.message.includes('Google Maps')) {
