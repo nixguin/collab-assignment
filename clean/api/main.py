@@ -141,7 +141,7 @@ if websocket_router:
     logger.info("✅ WebSocket router included")
 
 if pavement_router:
-    app.include_router(pavement_router)
+    app.include_router(pavement_router, prefix="/api")
     logger.info("✅ Pavement condition router included")
 
 # FGCU road network configuration
