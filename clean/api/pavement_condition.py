@@ -201,12 +201,16 @@ class PavementConditionModel:
             # 4. BRIGHTNESS ANALYSIS - Very dark = fresh asphalt, light gray = worn
             avg_brightness = stat.mean[0]
             # Fresh asphalt: 20-60, Weathered: 80-150, Concrete: 150-200
+            # Use gradient-based scoring instead of fixed values
             if 20 <= avg_brightness <= 70:
-                condition_score = 85  # Fresh asphalt
+                # Fresh asphalt: score 75-95 based on darkness (darker = newer)
+                condition_score = 95 - ((avg_brightness - 20) / 50 * 20)
             elif 70 < avg_brightness <= 120:
-                condition_score = 60  # Weathered asphalt
+                # Weathered asphalt: score 45-75 based on brightness
+                condition_score = 75 - ((avg_brightness - 70) / 50 * 30)
             else:
-                condition_score = 45  # Very worn or concrete
+                # Very worn or concrete: score 30-45
+                condition_score = max(30, 45 - ((avg_brightness - 120) / 80 * 15))
             
             # 5. DISTRESS DETECTION - Count dark spots (potholes) and lines (cracks)
             # Threshold to find very dark areas
@@ -217,8 +221,8 @@ class PavementConditionModel:
             distress_score = max(0, 100 - (distress_ratio * 5))
             
             # COMPOSITE PCI CALCULATION from real image analysis
-            # Weight different factors
-            weights = {
+            # Adjust weights based on detected issues for more realistic scoring
+            base_weights = {
                 'crack': 0.30,      # Cracks are critical
                 'smoothness': 0.25,  # Surface texture matters
                 'uniformity': 0.20,  # Color consistency
@@ -226,13 +230,23 @@ class PavementConditionModel:
                 'distress': 0.10     # Specific damage
             }
             
+            # Calculate base PCI
             pci_from_image = (
-                (100 - crack_score) * weights['crack'] +
-                smoothness_score * weights['smoothness'] +
-                uniformity_score * weights['uniformity'] +
-                condition_score * weights['condition'] +
-                distress_score * weights['distress']
+                (100 - crack_score) * base_weights['crack'] +
+                smoothness_score * base_weights['smoothness'] +
+                uniformity_score * base_weights['uniformity'] +
+                condition_score * base_weights['condition'] +
+                distress_score * base_weights['distress']
             )
+            
+            # Add variability based on multiple factors (ML-like adjustment)
+            if crack_score > 50 and smoothness_score < 60:
+                pci_from_image *= 0.92  # Significant deterioration
+            elif crack_score > 30 or uniformity_score < 70:
+                pci_from_image *= 0.96  # Moderate issues
+            
+            # Ensure realistic range (30-95)
+            pci_from_image = max(30, min(95, pci_from_image))
             
             # Detect specific distress types from analysis
             distress_types = []
