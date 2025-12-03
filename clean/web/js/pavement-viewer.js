@@ -138,10 +138,16 @@
             try {
                 // Get current POV from Street View
                 const pov = panorama.getPov();
+                
+                // Use relative URL for Vercel deployment, fallback to localhost
+                const apiUrl = window.location.hostname === 'localhost' 
+                    ? 'http://localhost:8080/api/pavement-condition'
+                    : '/api/pavement-condition';
+                
                 // Call backend API endpoint with timeout
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-                const response = await fetch('http://localhost:8080/api/pavement-condition', {
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
