@@ -15,21 +15,34 @@ body {
     width: 100vw;
     height: 100vh;
     position: relative;
+    transition: width 0.3s ease;
+}
+
+#map.split-view {
+    width: 50vw;
 }
 
 /* Street View Overlay */
 #street-view {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    display: none;
+    top: 70px;
+    right: 0;
+    width: 0;
+    height: calc(100vh - 70px);
+    display: block;
     z-index: 500;
+    transition: width 0.3s ease;
+    overflow: hidden;
 }
 
 #street-view.active {
-    display: block;
+    width: 50vw;
+}
+
+/* Ensure Street View renders properly */
+#street-view > div {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* Top Navigation Bar */

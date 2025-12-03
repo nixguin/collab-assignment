@@ -176,20 +176,24 @@ function toggleView() {
   streetViewActive = !streetViewActive;
 
   if (streetViewActive) {
-    // Show Street View
+    // Show Street View in split view
     updateStreetView(selectedLocation);
-    streetViewEl.style.display = "block";
     streetViewEl.classList.add("active");
-    toggleBtn.textContent = "🗺️ Back to Map";
+    map.getDiv().classList.add("split-view");
+    toggleBtn.textContent = "❌ Close Street View";
     toggleBtn.style.background = "rgba(255, 68, 68, 0.9)";
-    updateStatus('Street View mode - Click "Back to Map" to exit');
+    updateStatus('Street View active - Split view mode');
+    // Trigger map resize after transition
+    setTimeout(() => google.maps.event.trigger(map, 'resize'), 350);
   } else {
     // Hide Street View
-    streetViewEl.style.display = "none";
     streetViewEl.classList.remove("active");
+    map.getDiv().classList.remove("split-view");
     toggleBtn.textContent = "📷 View Street View";
     toggleBtn.style.background = "rgba(0, 212, 255, 0.9)";
     updateStatus("Map mode - Click on map to select location");
+    // Trigger map resize after transition
+    setTimeout(() => google.maps.event.trigger(map, 'resize'), 350);
   }
 }
 
