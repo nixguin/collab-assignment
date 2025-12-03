@@ -287,6 +287,22 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.datetime.now().isoformat()}
 
+@app.post("/api/pavement-condition-direct")
+async def pavement_condition_direct(request: dict):
+    """Direct pavement condition endpoint for testing"""
+    try:
+        from pavement_condition import pavement_model
+        result = pavement_model.predict(
+            latitude=request.get('latitude', 0),
+            longitude=request.get('longitude', 0),
+            heading=request.get('heading'),
+            pitch=request.get('pitch')
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error in pavement condition: {e}")
+        return {"error": str(e), "status": "failed"}
+
 @app.get("/api/status", response_model=SystemStatus)
 async def get_system_status():
     """Get system status and statistics"""
