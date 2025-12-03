@@ -21,8 +21,8 @@ if str(ROOT_DIR) not in sys.path:
 
 logger = logging.getLogger(__name__)
 
-# Create router
-pavement_router = APIRouter(prefix="/api", tags=["pavement"])
+# Create router (no prefix - will be added by main app)
+pavement_router = APIRouter(tags=["pavement"])
 
 # Try to import QRL agent
 try:
