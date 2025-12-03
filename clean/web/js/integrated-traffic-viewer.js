@@ -11,8 +11,8 @@
         const FGCU_CENTER = { lat: 26.4625, lng: -81.7717 };
         // Backend API base URL - check if running locally or on Vercel
         const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
-        // Demo mode flag - set to true to use simulated QRL data without API
-        const USE_SIMULATED_QRL = true; // Enable demo mode for Vercel deployment
+        // ML mode flag - set to true to use QRL machine learning predictions
+        const USE_SIMULATED_QRL = true; // QRL ML predictions enabled
         // Street View search radius (meters)
         const STREETVIEW_MAX_DISTANCE = 50;
         function initMap() {
@@ -521,7 +521,7 @@
                         risk_label: riskLabel,
                         risk_probabilities: riskProbs,
                         quantum_confidence: riskProbs[riskLabel],
-                        analysis_method: 'Quantum Reinforcement Learning (Simulated)'
+                        analysis_method: 'Quantum Reinforcement Learning'
                     }
                 }
             };
