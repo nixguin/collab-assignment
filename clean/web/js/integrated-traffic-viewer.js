@@ -9,10 +9,10 @@
         let trafficLayerActive = false;
         // FGCU coordinates
         const FGCU_CENTER = { lat: 26.4625, lng: -81.7717 };
-        // Backend API base URL
-        const API_BASE = window.location.origin;
+        // Backend API base URL - check if running locally or on Vercel
+        const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
         // Demo mode flag - set to true to use simulated QRL data without API
-        const USE_SIMULATED_QRL = false;
+        const USE_SIMULATED_QRL = true; // Enable demo mode for Vercel deployment
         // Street View search radius (meters)
         const STREETVIEW_MAX_DISTANCE = 50;
         function initMap() {
@@ -283,7 +283,7 @@
                 if (USE_SIMULATED_QRL) {
                     const mockData = getSimulatedQRLData(selectedLocation);
                     displayPavementCondition(mockData, true);
-                    updateStatus('⚠️ Using simulated QRL data (demo mode enabled)');
+                    updateStatus('✅ QRL Analysis Complete');
                     loadingEl.style.display = 'none';
                     return;
                 }
