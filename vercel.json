@@ -9,7 +9,7 @@
   "routes": [
     {
       "src": "/",
-      "dest": "clean/web/integrated-traffic-viewer.html"
+      "dest": "/clean/web/index.html"
     },
     {
       "src": "/(.*)",
