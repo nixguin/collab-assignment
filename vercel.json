@@ -2,22 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "clean/api/main.py",
-      "use": "@vercel/python"
-    },
-    {
       "src": "clean/web/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/clean/api/main.py"
-    },
-    {
       "src": "/",
-      "dest": "/clean/web/index.html"
+      "dest": "clean/web/integrated-traffic-viewer.html"
     },
     {
       "src": "/(.*)",
